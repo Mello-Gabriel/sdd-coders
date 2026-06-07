@@ -1,0 +1,35 @@
+# Copier configuration for the sdd-coders base template.
+# Only *.jinja files are rendered; everything else is copied verbatim, so JSX
+# "}}" and GitHub Actions "${{ }}" pass through untouched.
+
+_templates_suffix: ".jinja"
+_envops:
+  keep_trailing_newline: true
+
+_exclude:
+  - "copier.yml"
+  - "**/.git"
+  - "**/__pycache__"
+  - "**/*.py[co]"
+  - ".venv"
+  - "**/.venv"
+  - "**/.venv/**"
+  - "node_modules"
+  - "**/node_modules"
+  - "**/node_modules/**"
+  - "**/.next"
+  - "**/.next/**"
+  - "**/out"
+  - "**/.pytest_cache"
+  - "**/.mypy_cache"
+  - "**/.ruff_cache"
+  - "**/.coverage"
+  - "**/coverage"
+  - "**/playwright-report"
+  - "**/test-results"
+  - "**/*.tsbuildinfo"
+
+project_name:
+  type: str
+  help: "Project name (kebab-case, e.g. my-app)"
+  default: "my-app"

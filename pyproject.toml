@@ -16,6 +16,7 @@ keywords = [
 ]
 dependencies = [
     "typer>=0.12",
+    "copier>=9.3",
 ]
 
 [project.scripts]

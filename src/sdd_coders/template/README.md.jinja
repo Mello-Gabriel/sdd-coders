@@ -1,0 +1,31 @@
+# {{ project_name }}
+
+Production-grade fullstack app scaffolded from the **sdd-coders** base model
+(Spec-Driven Development, built by orchestrated AI agents).
+
+## Stack
+
+- **Frontend:** Next.js (App Router) + TypeScript + Tailwind (`frontend/`)
+- **Backend:** FastAPI + Pydantic + SQLAlchemy async, managed by `uv` (`backend/`)
+- **Database:** PostgreSQL with **Row-Level Security** (RLS) everywhere
+
+## First steps
+
+1. Open this repository in **Claude Code** and run **`/sdd-interview`** — a guided
+   discovery interview (in Portuguese) that fills `specs/00-product-brief.md`.
+2. Then `/sdd-specify` → `/sdd-plan` → `/sdd-tasks` → `/sdd-implement` →
+   `/sdd-verify` → `/sdd-docs`. See `specs/README.md` and `specs/constitution.md`.
+
+## Run locally
+
+```bash
+cp .env.example .env          # then set a real APP_JWT_SECRET
+docker compose -f infra/docker-compose.yml up --build
+# frontend on :3000, backend on :8000
+```
+
+## Quality gates
+
+100% unit coverage (backend + frontend), integration + Playwright E2E, strict
+linting/typing, hardened Docker, security scans — all enforced in CI.
+See `AGENTS.md` for the day-to-day commands.
