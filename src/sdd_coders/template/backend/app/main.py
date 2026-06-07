@@ -7,7 +7,7 @@ from collections.abc import Awaitable, Callable
 
 from fastapi import FastAPI, Request, Response
 
-from app.api.routes import health
+from app.api.routes import auth, health
 
 _SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
@@ -33,6 +33,7 @@ def create_app() -> FastAPI:
         return response
 
     app.include_router(health.router)
+    app.include_router(auth.router)
     return app
 
 

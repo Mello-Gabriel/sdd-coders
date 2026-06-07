@@ -6,7 +6,7 @@ import datetime as dt
 import uuid
 from typing import Any
 
-from sqlalchemy import DateTime, String, func
+from sqlalchemy import DateTime, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -19,8 +19,12 @@ class AuditLog(Base):
     __tablename__ = "audit_log"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    # Python-side default so the INSERT needs no RETURNING: audit_log is
+    # admin-read-only, so a service-context insert must not read the row back.
     occurred_at: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), index=True
+        DateTime(timezone=True),
+        default=lambda: dt.datetime.now(dt.UTC),
+        index=True,
     )
     actor_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     actor_role: Mapped[str] = mapped_column(String(20))

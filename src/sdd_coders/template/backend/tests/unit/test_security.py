@@ -39,3 +39,9 @@ def test_refresh_token_uses_custom_jti() -> None:
     claims = decode_token(token, settings=settings)
     assert claims["type"] == REFRESH_TOKEN
     assert claims["jti"] == "fixed-jti"
+
+
+def test_access_token_includes_extra_claims() -> None:
+    token = create_token("user-1", ACCESS_TOKEN, settings=settings, extra={"role": "admin"})
+    claims = decode_token(token, settings=settings)
+    assert claims["role"] == "admin"

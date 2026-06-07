@@ -19,7 +19,7 @@ from app.main import app
 from app.models import Base, Project, User
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 OWNER_URL = "postgresql+asyncpg://postgres:postgres@localhost:55432/app"
@@ -80,6 +80,18 @@ async def seed() -> dict[str, uuid.UUID]:
     finally:
         await owner.dispose()
     return ids
+
+
+@pytest_asyncio.fixture
+async def owner_session() -> AsyncIterator[AsyncSession]:
+    """A session as the database owner (bypasses RLS) for test mutations."""
+    owner = create_async_engine(OWNER_URL, poolclass=NullPool)
+    factory = async_sessionmaker(owner, expire_on_commit=False)
+    try:
+        async with factory() as session:
+            yield session
+    finally:
+        await owner.dispose()
 
 
 @pytest_asyncio.fixture

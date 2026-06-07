@@ -37,8 +37,12 @@ def create_token(
     *,
     settings: Settings,
     jti: str | None = None,
+    extra: dict[str, str] | None = None,
 ) -> str:
-    """Create a signed JWT. ``token_type`` is ``access`` or ``refresh``."""
+    """Create a signed JWT. ``token_type`` is ``access`` or ``refresh``.
+
+    ``extra`` adds non-reserved claims (e.g. the user's ``role`` on access tokens).
+    """
     ttl = (
         settings.access_token_ttl_seconds
         if token_type == ACCESS_TOKEN
@@ -52,6 +56,8 @@ def create_token(
         "iat": int(now.timestamp()),
         "exp": int((now + dt.timedelta(seconds=ttl)).timestamp()),
     }
+    if extra:
+        payload.update(extra)
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
