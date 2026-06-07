@@ -1,0 +1,11 @@
+{
+  "name": "sdd-coders",
+  "owner": { "name": "Gabriel Mello", "email": "mellogcg@gmail.com" },
+  "plugins": [
+    {
+      "name": "sdd-coders",
+      "source": ".",
+      "description": "SDD multi-agent toolkit: orchestrator + specialists + the /sdd-* pipeline."
+    }
+  ]
+}

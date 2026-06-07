@@ -1,0 +1,8 @@
+{
+  "name": "sdd-coders",
+  "description": "Spec-Driven Development toolkit: an orchestrator plus nine specialist agents and the /sdd-* pipeline (interview, specify, plan, tasks, implement, verify, docs) for building production-grade fullstack apps.",
+  "version": "0.1.0",
+  "author": { "name": "Gabriel Mello", "email": "mellogcg@gmail.com" },
+  "homepage": "https://github.com/mellogcg/sdd-coders",
+  "license": "MIT"
+}
