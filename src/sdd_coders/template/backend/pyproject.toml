@@ -66,6 +66,9 @@ testpaths = ["tests"]
 [tool.coverage.run]
 source = ["app"]
 branch = true
+# SQLAlchemy's async bridge resumes coroutines inside greenlets; without this,
+# lines after an awaited DB call are reported as missed.
+concurrency = ["greenlet", "thread"]
 
 [tool.coverage.report]
 show_missing = true

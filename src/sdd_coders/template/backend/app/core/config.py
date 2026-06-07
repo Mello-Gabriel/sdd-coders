@@ -18,7 +18,8 @@ class Settings(BaseSettings):
     )
 
     environment: str = "development"
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/app"
+    # App connects as the least-privilege role (no BYPASSRLS). Override via env.
+    database_url: str = "postgresql+asyncpg://app_user:app_pass@localhost:5432/app"
     # Empty by default; the validator below requires it outside development.
     jwt_secret: str = ""
     jwt_algorithm: str = "HS256"
