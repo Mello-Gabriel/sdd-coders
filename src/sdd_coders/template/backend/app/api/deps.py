@@ -59,3 +59,31 @@ async def get_current_user(request: Request) -> User:
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+async def get_user_session(user: CurrentUser) -> AsyncIterator[AsyncSession]:
+    """Yield a session in the authenticated user's RLS context."""
+    async with session_scope(RlsContext(user_id=str(user.id), role=user.role)) as session:
+        yield session
+
+
+UserSession = Annotated[AsyncSession, Depends(get_user_session)]
+
+
+async def require_admin(user: CurrentUser) -> User:
+    """Ensure the current user is an admin (403 otherwise)."""
+    if user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only")
+    return user
+
+
+AdminUser = Annotated[User, Depends(require_admin)]
+
+
+async def get_admin_session(admin: AdminUser) -> AsyncIterator[AsyncSession]:
+    """Yield a session in the admin's RLS context (policies expose all rows)."""
+    async with session_scope(RlsContext(user_id=str(admin.id), role=admin.role)) as session:
+        yield session
+
+
+AdminSession = Annotated[AsyncSession, Depends(get_admin_session)]
