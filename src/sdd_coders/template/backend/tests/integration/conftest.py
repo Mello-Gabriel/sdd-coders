@@ -8,6 +8,7 @@ connects as ``app_user`` (no BYPASSRLS), so RLS is genuinely enforced.
 from __future__ import annotations
 
 import asyncio
+import os
 import uuid
 from collections.abc import AsyncIterator
 
@@ -22,7 +23,10 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
-OWNER_URL = "postgresql+asyncpg://postgres:postgres@localhost:55432/app"
+OWNER_URL = os.environ.get(
+    "TEST_OWNER_DATABASE_URL",
+    "postgresql+asyncpg://postgres:postgres@localhost:55432/app",
+)
 
 
 async def _build_schema() -> None:
