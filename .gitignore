@@ -25,6 +25,7 @@ out/
 *.tsbuildinfo
 playwright-report/
 test-results/
+coverage/
 
 # Docs build
 site/
@@ -36,3 +37,5 @@ site/
 
 # OS / editor
 .DS_Store
+
+.obsidian
