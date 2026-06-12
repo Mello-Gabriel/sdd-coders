@@ -56,7 +56,10 @@ async def _isolate() -> AsyncIterator[None]:
     try:
         async with owner.begin() as conn:
             await conn.execute(
-                text("TRUNCATE users, projects, refresh_tokens, audit_log RESTART IDENTITY CASCADE")
+                text(
+                    "TRUNCATE users, projects, refresh_tokens, audit_log, ip_bans"
+                    " RESTART IDENTITY CASCADE"
+                )
             )
     finally:
         await owner.dispose()

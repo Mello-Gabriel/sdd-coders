@@ -27,6 +27,25 @@ class Settings(BaseSettings):
     refresh_token_ttl_seconds: int = 7 * 24 * 60 * 60
     cors_origins: list[str] = Field(default_factory=list)
 
+    # Redis (optional; if empty, in-memory fallback is used for rate limiting)
+    redis_url: str = ""
+
+    # Cloudflare Turnstile
+    turnstile_secret_key: str = ""
+    turnstile_enabled: bool = False
+
+    # Email provider: "resend" | "smtp" | "memory"
+    email_provider: str = "memory"
+    resend_api_key: str = ""
+    smtp_host: str = "localhost"
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    email_from: str = "noreply@example.com"
+
+    # Base URL for verification/reset links sent in emails
+    frontend_url: str = "http://localhost:3000"
+
     @model_validator(mode="after")
     def _require_secret_outside_dev(self) -> Settings:
         """Refuse to start without a JWT secret in non-development environments."""

@@ -72,6 +72,9 @@ _GRANT_STATEMENTS: tuple[str, ...] = (
     "GRANT SELECT, INSERT, UPDATE, DELETE ON projects TO app_user",
     "GRANT SELECT, INSERT, UPDATE, DELETE ON refresh_tokens TO app_user",
     "GRANT SELECT, INSERT ON audit_log TO app_user",
+    # ip_bans: not user-specific data; middleware reads/writes without RLS context.
+    "GRANT SELECT, INSERT, UPDATE ON ip_bans TO app_user",
+    "GRANT USAGE, SELECT ON SEQUENCE ip_bans_id_seq TO app_user",
 )
 
 _ENSURE_ROLE = """

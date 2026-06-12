@@ -1,12 +1,21 @@
-"""Authentication endpoints: register, login, refresh, logout, me."""
+"""Authentication endpoints: register, login, refresh, logout, me, verify, reset."""
 
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request, Response, status
 
-from app.api.deps import ACCESS_COOKIE, REFRESH_COOKIE, CurrentUser, ServiceSession
+from app.api.deps import ACCESS_COOKIE, REFRESH_COOKIE, CurrentUser, ServiceSession, UserSession
 from app.core.config import get_settings
-from app.schemas.auth import LoginRequest, RegisterRequest, UserRead
+from app.schemas.auth import (
+    ChangePasswordRequest,
+    LoginRequest,
+    RegisterRequest,
+    RequestPasswordResetRequest,
+    RequestVerificationRequest,
+    ResetPasswordRequest,
+    UserRead,
+    VerifyEmailRequest,
+)
 from app.services.audit import record_audit
 from app.services.auth import (
     authenticate,
@@ -15,6 +24,14 @@ from app.services.auth import (
     register_user,
     revoke_refresh,
     rotate_tokens,
+)
+from app.services.turnstile import verify_turnstile
+from app.services.verification import (
+    change_password,
+    reset_password,
+    send_password_reset_email,
+    send_verification_email,
+    verify_email_token,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -45,6 +62,10 @@ def _set_auth_cookies(response: Response, access: str, refresh: str) -> None:
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register(payload: RegisterRequest, session: ServiceSession) -> UserRead:
+    if not await verify_turnstile(payload.turnstile_token):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Captcha inválido"
+        )
     if await get_user_by_email(session, payload.email) is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
     user = await register_user(session, payload.email, payload.password)
@@ -56,6 +77,7 @@ async def register(payload: RegisterRequest, session: ServiceSession) -> UserRea
         entity_type="user",
         entity_id=str(user.id),
     )
+    await send_verification_email(user)
     return UserRead.model_validate(user)
 
 
@@ -64,6 +86,11 @@ async def login(payload: LoginRequest, response: Response, session: ServiceSessi
     user = await authenticate(session, payload.email, payload.password)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    if not user.email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Email not verified. Check your inbox.",
+        )
     access, refresh = await issue_tokens(session, user)
     _set_auth_cookies(response, access, refresh)
     await record_audit(
@@ -108,3 +135,61 @@ async def logout(request: Request, session: ServiceSession) -> Response:
 @router.get("/me")
 async def me(user: CurrentUser) -> UserRead:
     return UserRead.model_validate(user)
+
+
+@router.post("/request-verification", status_code=status.HTTP_204_NO_CONTENT)
+async def request_verification(
+    payload: RequestVerificationRequest, session: ServiceSession
+) -> Response:
+    user = await get_user_by_email(session, payload.email)
+    if user is not None and not user.email_verified:
+        await send_verification_email(user)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/verify-email")
+async def verify_email(payload: VerifyEmailRequest, session: ServiceSession) -> UserRead:
+    user = await verify_email_token(session, payload.token)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired token"
+        )
+    return UserRead.model_validate(user)
+
+
+@router.post("/request-password-reset", status_code=status.HTTP_204_NO_CONTENT)
+async def request_password_reset(
+    payload: RequestPasswordResetRequest, session: ServiceSession
+) -> Response:
+    if not await verify_turnstile(payload.turnstile_token):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Captcha inválido"
+        )
+    await send_password_reset_email(session, payload.email)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/reset-password")
+async def reset_password_endpoint(
+    payload: ResetPasswordRequest, session: ServiceSession
+) -> UserRead:
+    user = await reset_password(session, payload.token, payload.new_password)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired token"
+        )
+    return UserRead.model_validate(user)
+
+
+@router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
+async def change_password_endpoint(
+    payload: ChangePasswordRequest, session: UserSession, current_user: CurrentUser
+) -> Response:
+    success = await change_password(
+        session, current_user, payload.current_password, payload.new_password
+    )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect"
+        )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

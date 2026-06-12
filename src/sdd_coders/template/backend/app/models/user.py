@@ -25,6 +25,7 @@ class User(Base, TimestampMixin):
     hashed_password: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(20), default="user", server_default="user")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
     projects: Mapped[list[Project]] = relationship(
         back_populates="owner", cascade="all, delete-orphan"

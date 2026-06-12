@@ -12,6 +12,7 @@ class RegisterRequest(BaseModel):
 
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
+    turnstile_token: str = ""
 
 
 class LoginRequest(BaseModel):
@@ -30,3 +31,37 @@ class UserRead(BaseModel):
     email: EmailStr
     role: str
     is_active: bool
+    email_verified: bool
+
+
+class RequestVerificationRequest(BaseModel):
+    """Request a new verification email."""
+
+    email: EmailStr
+
+
+class VerifyEmailRequest(BaseModel):
+    """Verify an email address with a one-time token."""
+
+    token: str
+
+
+class RequestPasswordResetRequest(BaseModel):
+    """Request a password-reset email."""
+
+    email: EmailStr
+    turnstile_token: str = ""
+
+
+class ResetPasswordRequest(BaseModel):
+    """Complete a password reset with a one-time token."""
+
+    token: str
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+class ChangePasswordRequest(BaseModel):
+    """Change password while authenticated."""
+
+    current_password: str
+    new_password: str = Field(min_length=8, max_length=128)
