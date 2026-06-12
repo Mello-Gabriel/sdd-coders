@@ -1,0 +1,48 @@
+name: Deploy — dev
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy-dev:
+    name: Deploy to dev
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: backend
+          file: infra/docker/backend.Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository }}/backend:dev
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: frontend
+          file: infra/docker/frontend.Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository }}/frontend:dev
+        env:
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL_DEV }}
+          NEXT_PUBLIC_GA_ID: ${{ vars.NEXT_PUBLIC_GA_ID }}
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+
+      - name: Trigger Coolify deploy — backend (dev)
+        run: |
+          curl -sf -X POST "${{ secrets.COOLIFY_URL }}/api/v1/deploy" \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"uuid":"${{ secrets.COOLIFY_DEV_BACKEND_UUID }}","force":false}'
+
+      - name: Trigger Coolify deploy — frontend (dev)
+        run: |
+          curl -sf -X POST "${{ secrets.COOLIFY_URL }}/api/v1/deploy" \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"uuid":"${{ secrets.COOLIFY_DEV_FRONTEND_UUID }}","force":false}'

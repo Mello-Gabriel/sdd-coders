@@ -1,0 +1,115 @@
+---
+- name: Harden VPS for production
+  hosts: vps
+  become: true
+
+  vars:
+    ssh_port: 22
+    app_user: deploy
+
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Install required packages
+      ansible.builtin.apt:
+        name:
+          - ufw
+          - fail2ban
+          - unattended-upgrades
+          - curl
+          - git
+        state: present
+
+    - name: Create deploy user
+      ansible.builtin.user:
+        name: "{{ app_user }}"
+        shell: /bin/bash
+        groups: sudo
+        append: true
+        create_home: true
+
+    - name: Disable root SSH login
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^PermitRootLogin"
+        line: "PermitRootLogin no"
+        state: present
+      notify: Restart SSH
+
+    - name: Disable password authentication
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^PasswordAuthentication"
+        line: "PasswordAuthentication no"
+        state: present
+      notify: Restart SSH
+
+    - name: Configure UFW — allow SSH
+      community.general.ufw:
+        rule: allow
+        port: "{{ ssh_port }}"
+        proto: tcp
+
+    - name: Configure UFW — allow HTTP
+      community.general.ufw:
+        rule: allow
+        port: "80"
+        proto: tcp
+
+    - name: Configure UFW — allow HTTPS
+      community.general.ufw:
+        rule: allow
+        port: "443"
+        proto: tcp
+
+    - name: Enable UFW
+      community.general.ufw:
+        state: enabled
+        policy: deny
+
+    - name: Configure fail2ban
+      ansible.builtin.copy:
+        dest: /etc/fail2ban/jail.local
+        content: |
+          [DEFAULT]
+          bantime  = 1h
+          findtime = 10m
+          maxretry = 5
+
+          [sshd]
+          enabled = true
+          port    = {{ ssh_port }}
+        mode: "0644"
+      notify: Restart fail2ban
+
+    - name: Enable unattended security upgrades
+      ansible.builtin.debconf:
+        name: unattended-upgrades
+        question: unattended-upgrades/enable_auto_updates
+        value: "true"
+        vtype: boolean
+
+    - name: Install Docker
+      ansible.builtin.shell:
+        cmd: curl -fsSL https://get.docker.com | sh
+        creates: /usr/bin/docker
+
+    - name: Add deploy user to docker group
+      ansible.builtin.user:
+        name: "{{ app_user }}"
+        groups: docker
+        append: true
+
+  handlers:
+    - name: Restart SSH
+      ansible.builtin.service:
+        name: ssh
+        state: restarted
+
+    - name: Restart fail2ban
+      ansible.builtin.service:
+        name: fail2ban
+        state: restarted

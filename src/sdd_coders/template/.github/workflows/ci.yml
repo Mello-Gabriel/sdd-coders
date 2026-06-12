@@ -121,6 +121,35 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: uv run mkdocs gh-deploy --force
 
+  iac:
+    name: IaC validation (Terraform + Ansible)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9"
+      - name: terraform fmt check
+        run: terraform fmt -check -recursive
+      - name: terraform init (no backend)
+        run: terraform init -backend=false
+      - name: terraform validate
+        run: terraform validate
+      - name: Install tflint
+        run: |
+          curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+      - name: tflint
+        run: tflint --recursive
+      - name: Install ansible-lint
+        run: pip install ansible-lint
+        working-directory: .
+      - name: ansible-lint
+        run: ansible-lint infra/ansible/playbooks/harden.yml
+        working-directory: ${{ github.workspace }}
+
   e2e:
     name: Playwright E2E
     runs-on: ubuntu-latest

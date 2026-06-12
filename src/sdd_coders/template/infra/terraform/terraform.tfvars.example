@@ -1,0 +1,19 @@
+# Copy this file to terraform.tfvars and fill in your values.
+# NEVER commit terraform.tfvars — it is gitignored.
+
+app_name = "myapp"
+domain   = "example.com"
+
+# Hostinger — https://www.hostinger.com/cpanel/api-tokens
+hostinger_api_key  = "CHANGE_ME"
+hostinger_vps_plan = "KVM 2"
+hostinger_region   = "eu-west-1"
+
+# Cloudflare — https://dash.cloudflare.com/profile/api-tokens
+cloudflare_api_token  = "CHANGE_ME"
+cloudflare_zone_id    = "CHANGE_ME"
+turnstile_secret_key  = "CHANGE_ME"
+
+# Coolify — https://coolify.yourdomain.com/settings/api-tokens
+coolify_url   = "https://coolify.example.com"
+coolify_token = "CHANGE_ME"
