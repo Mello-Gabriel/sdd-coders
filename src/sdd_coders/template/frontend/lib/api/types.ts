@@ -5,6 +5,7 @@ export interface User {
   email: string;
   role: string;
   is_active: boolean;
+  email_verified: boolean;
 }
 
 export interface Project {

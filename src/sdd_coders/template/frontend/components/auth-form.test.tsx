@@ -8,19 +8,33 @@ const { pushMock } = vi.hoisted(() => ({ pushMock: vi.fn() }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: pushMock }) }));
 
+vi.mock("@marsidev/react-turnstile", () => ({
+  Turnstile: ({ onSuccess }: { onSuccess: (t: string) => void }) => (
+    <button type="button" onClick={() => onSuccess("test-token")}>
+      Complete captcha
+    </button>
+  ),
+}));
+
 vi.mock("@/lib/api/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api/client")>();
   return { ...actual, api: { login: vi.fn(), register: vi.fn() } };
 });
 
-const sampleUser = { id: "1", email: "a@b.c", role: "user", is_active: true };
+const sampleUser = {
+  id: "1",
+  email: "a@b.c",
+  role: "user",
+  is_active: true,
+  email_verified: true,
+};
 
 afterEach(() => {
   vi.clearAllMocks();
 });
 
 describe("AuthForm", () => {
-  it("logs in and redirects to the dashboard", async () => {
+  it("logs in and redirects to the dashboard when email is verified", async () => {
     vi.mocked(api.login).mockResolvedValue(sampleUser);
     const user = userEvent.setup();
     render(<AuthForm mode="login" />);
@@ -33,7 +47,17 @@ describe("AuthForm", () => {
     expect(pushMock).toHaveBeenCalledWith("/dashboard");
   });
 
-  it("registers and redirects", async () => {
+  it("redirects to /verify-email when email is not verified after login", async () => {
+    vi.mocked(api.login).mockResolvedValue({ ...sampleUser, email_verified: false });
+    const user = userEvent.setup();
+    render(<AuthForm mode="login" />);
+
+    await user.click(screen.getByRole("button", { name: "Entrar" }));
+
+    expect(pushMock).toHaveBeenCalledWith("/verify-email");
+  });
+
+  it("registers and redirects to /verify-email", async () => {
     vi.mocked(api.register).mockResolvedValue(sampleUser);
     const user = userEvent.setup();
     render(<AuthForm mode="register" />);
@@ -41,7 +65,18 @@ describe("AuthForm", () => {
     await user.click(screen.getByRole("button", { name: "Criar conta" }));
 
     expect(api.register).toHaveBeenCalled();
-    expect(pushMock).toHaveBeenCalledWith("/dashboard");
+    expect(pushMock).toHaveBeenCalledWith("/verify-email");
+  });
+
+  it("sends the Turnstile token when the widget is enabled", async () => {
+    vi.mocked(api.register).mockResolvedValue(sampleUser);
+    const user = userEvent.setup();
+    render(<AuthForm mode="register" turnstileSiteKey="0x4AAA" />);
+
+    await user.click(screen.getByRole("button", { name: "Complete captcha" }));
+    await user.click(screen.getByRole("button", { name: "Criar conta" }));
+
+    expect(api.register).toHaveBeenCalledWith("", "", "test-token");
   });
 
   it("shows the API error message", async () => {

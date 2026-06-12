@@ -11,13 +11,14 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
+    exclude: ["node_modules/**", "e2e/**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],
       // The unit-coverage gate covers logic and components. Next.js route files
       // (app/**) are exercised end-to-end by Playwright, not unit tests.
       include: ["lib/**", "components/**"],
-      exclude: ["**/*.test.{ts,tsx}", "**/*.d.ts", "lib/api/types.ts"],
+      exclude: ["**/*.test.{ts,tsx}", "**/*.stories.tsx", "**/*.d.ts", "lib/api/types.ts"],
       thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },
     },
   },

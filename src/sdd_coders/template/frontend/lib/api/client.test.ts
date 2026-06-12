@@ -11,7 +11,7 @@ afterEach(() => {
 
 describe("api client", () => {
   it("returns the parsed body on success", async () => {
-    const user = { id: "1", email: "a@b.c", role: "user", is_active: true };
+    const user = { id: "1", email: "a@b.c", role: "user", is_active: true, email_verified: true };
     const fetchMock = vi.fn().mockResolvedValue(ok(user));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -64,6 +64,13 @@ describe("api client", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await api.register("a@b.c", "pw");
+    await api.register("a@b.c", "pw", "token");
+    await api.requestVerification("a@b.c");
+    await api.verifyEmail("tok");
+    await api.requestPasswordReset("a@b.c");
+    await api.requestPasswordReset("a@b.c", "ts-token");
+    await api.resetPassword("tok", "newpw");
+    await api.changePassword("old", "new");
     await api.createProject("P", "d");
     await api.deleteProject("p1");
     await api.listProjects();
@@ -76,6 +83,13 @@ describe("api client", () => {
     );
     expect(calls).toEqual([
       "POST http://localhost:8000/auth/register",
+      "POST http://localhost:8000/auth/register",
+      "POST http://localhost:8000/auth/request-verification",
+      "POST http://localhost:8000/auth/verify-email",
+      "POST http://localhost:8000/auth/request-password-reset",
+      "POST http://localhost:8000/auth/request-password-reset",
+      "POST http://localhost:8000/auth/reset-password",
+      "POST http://localhost:8000/auth/change-password",
       "POST http://localhost:8000/projects",
       "DELETE http://localhost:8000/projects/p1",
       "GET http://localhost:8000/projects",

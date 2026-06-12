@@ -36,12 +36,34 @@ function jsonBody(value: unknown): RequestInit {
 }
 
 export const api = {
-  register: (email: string, password: string): Promise<User> =>
-    request<User>("/auth/register", { method: "POST", ...jsonBody({ email, password }) }),
+  register: (email: string, password: string, turnstileToken = ""): Promise<User> =>
+    request<User>("/auth/register", {
+      method: "POST",
+      ...jsonBody({ email, password, turnstile_token: turnstileToken }),
+    }),
   login: (email: string, password: string): Promise<User> =>
     request<User>("/auth/login", { method: "POST", ...jsonBody({ email, password }) }),
   logout: (): Promise<void> => request<void>("/auth/logout", { method: "POST" }),
   me: (): Promise<User> => request<User>("/auth/me"),
+  requestVerification: (email: string): Promise<void> =>
+    request<void>("/auth/request-verification", { method: "POST", ...jsonBody({ email }) }),
+  verifyEmail: (token: string): Promise<User> =>
+    request<User>("/auth/verify-email", { method: "POST", ...jsonBody({ token }) }),
+  requestPasswordReset: (email: string, turnstileToken = ""): Promise<void> =>
+    request<void>("/auth/request-password-reset", {
+      method: "POST",
+      ...jsonBody({ email, turnstile_token: turnstileToken }),
+    }),
+  resetPassword: (token: string, newPassword: string): Promise<User> =>
+    request<User>("/auth/reset-password", {
+      method: "POST",
+      ...jsonBody({ token, new_password: newPassword }),
+    }),
+  changePassword: (currentPassword: string, newPassword: string): Promise<void> =>
+    request<void>("/auth/change-password", {
+      method: "POST",
+      ...jsonBody({ current_password: currentPassword, new_password: newPassword }),
+    }),
   listProjects: (): Promise<Project[]> => request<Project[]>("/projects"),
   createProject: (name: string, description: string): Promise<Project> =>
     request<Project>("/projects", { method: "POST", ...jsonBody({ name, description }) }),

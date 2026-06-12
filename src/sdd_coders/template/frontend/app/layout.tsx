@@ -1,5 +1,7 @@
 import { ConsentBanner } from "@/components/consent-banner";
+import { GoogleAnalytics } from "@/components/google-analytics";
 import type { Metadata } from "next";
+import { ThemeProvider } from "next-themes";
 import type { ReactNode } from "react";
 import "./globals.css";
 
@@ -10,10 +12,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
       <body>
-        {children}
-        <ConsentBanner />
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          {children}
+          <ConsentBanner />
+          {process.env.NEXT_PUBLIC_GA_ID && (
+            <GoogleAnalytics measurementId={process.env.NEXT_PUBLIC_GA_ID} />
+          )}
+        </ThemeProvider>
       </body>
     </html>
   );
