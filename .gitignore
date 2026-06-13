@@ -26,6 +26,7 @@ out/
 playwright-report/
 test-results/
 coverage/
+storybook-static/
 
 # Docs build
 site/
@@ -39,3 +40,8 @@ site/
 .DS_Store
 
 .obsidian
+
+Excalidraw
+
+*.base
+*.canvas

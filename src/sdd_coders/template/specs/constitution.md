@@ -44,7 +44,7 @@ identificadores, mensagens de commit e documentação técnica.
 | Camada | Tecnologia |
 | --- | --- |
 | Frontend | **Next.js (App Router) + React + TypeScript strict** |
-| Estilo/UI | **Tailwind CSS + shadcn/ui** |
+| Estilo/UI | **Tailwind CSS + shadcn/ui + tokens CSS + dark/light (next-themes)** |
 | Backend | **Python 3.13 + FastAPI + Pydantic v2** |
 | Gerência backend | **uv** (sempre; nunca pip/poetry direto) |
 | ORM/DB toolkit | **SQLAlchemy 2.0 (async) + Alembic** (migrations) |
@@ -57,8 +57,11 @@ identificadores, mensagens de commit e documentação técnica.
 | Lint/format frontend | **Biome** (default; ESLint+Prettier é alternativa documentada) |
 | Logs | **structlog** (JSON estruturado) |
 | Métricas/Tracing | **OpenTelemetry** + endpoint Prometheus |
+| Cache / rate-limit | **Redis 7** (in-memory em dev; Redis standalone em prod) |
 | Container | **Docker** multi-stage, imagem mínima (distroless/slim), non-root |
-| CI/CD | **GitHub Actions** |
+| CI/CD | **GitHub Actions + GitHub Environments** (aprovação manual para prod) |
+| Deploy | **Coolify** (self-hosted) + **Hostinger** VPS + **Cloudflare** proxy/DNS/WAF |
+| IaC | **Terraform ≥ 1.9** + **Ansible ≥ 2.17** |
 | Docs | **MkDocs Material + mkdocstrings**, cliente TS gerado do OpenAPI, ER auto |
 
 Trocar qualquer item desta tabela é uma decisão de **constituição** → requer ADR.
@@ -87,7 +90,8 @@ Trocar qualquer item desta tabela é uma decisão de **constituição** → requ
   CI roda `gitleaks` (segredos), `bandit`+`semgrep` (SAST) e `trivy`/`grype` (imagens).
 - **Headers** de segurança (CSP, HSTS, X-Content-Type-Options, Referrer-Policy) no
   frontend e backend.
-- **Rate limiting** e **lockout** em endpoints de auth. Proteção contra brute force.
+- **Rate limiting progressivo** (`slowapi` + Redis) e **ban de IP escalado** (5→30→240→1440→permanente, tabela `ip_bans`). **Cloudflare Turnstile** em register e reset de senha.
+- **E-mail verificado obrigatório** antes do primeiro login. Tokens de verificação e reset com expiração curta.
 - **CORS** restrito a origens conhecidas. **CSRF**: cookies SameSite + token quando
   aplicável.
 - **Senhas:** Argon2id. Tokens de reset/refresh com expiração e rotação.

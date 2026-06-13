@@ -9,10 +9,14 @@
 - **Tokens:** JWT **access** (curto, ~15min) + **refresh** (longo, rotacionado).
   Ambos em cookies **`HttpOnly; Secure; SameSite=Lax`**. Refresh tem `jti` e é
   rastreado/revogável (tabela `refresh_tokens`); logout revoga.
+- **E-mail verificado obrigatório:** login bloqueado até verificar. Token de
+  verificação de uso único; reenviável via `/auth/request-verification`.
 - **Endpoints:** `POST /auth/register`, `/auth/login`, `/auth/refresh`,
-  `/auth/logout`, `/auth/me`, fluxo de reset de senha com token expirável.
-- **Proteções:** rate limit + lockout progressivo; timing-safe; mensagens genéricas
-  (não revelam se e-mail existe).
+  `/auth/logout`, `/auth/me`, `/auth/request-verification`, `/auth/verify-email`,
+  `/auth/request-password-reset`, `/auth/reset-password`, `/auth/change-password`.
+- **Proteções:** rate limit progressivo (`slowapi`/Redis) + ban de IP escalado
+  (5→30→240→1440→permanente, middleware + tabela `ip_bans`); **Turnstile** em
+  register e reset; timing-safe; mensagens genéricas (não revelam se e-mail existe).
 
 ## 2. Autorização
 

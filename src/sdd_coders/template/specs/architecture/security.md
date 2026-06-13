@@ -12,7 +12,10 @@
 - [ ] **CORS** restrito a origens conhecidas (lista por ambiente).
 - [ ] **CSRF**: cookies `SameSite=Lax` + token anti-CSRF em mutações state-changing
       quando aplicável.
-- [ ] **Rate limiting** global + reforçado em auth; lockout por tentativas.
+- [ ] **Rate limiting progressivo** (`slowapi`/Redis): global + reforçado em auth.
+      **Ban de IP escalado**: 5→30→240→1440→permanente (middleware + tabela `ip_bans`).
+      **Cloudflare Turnstile** em register e reset-password.
+- [ ] **E-mail verificado** obrigatório antes do primeiro login.
 - [ ] **Segredos** só via env/secret manager. `.env` no `.gitignore`.
 - [ ] **SQL**: sempre parametrizado (SQLAlchemy). Sem string interpolation.
 - [ ] **Uploads**: validar tipo/tamanho; armazenar fora do webroot; antivírus quando aplicável.

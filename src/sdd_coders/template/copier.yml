@@ -6,6 +6,10 @@ _templates_suffix: ".jinja"
 _envops:
   keep_trailing_newline: true
 
+# Prevents ForbiddenPathError when .venv symlinks (e.g. bin/python → system Python)
+# are present in the template dir. Since .venv is excluded, they are never copied.
+_preserve_symlinks: true
+
 _exclude:
   - "copier.yml"
   - "**/.git"

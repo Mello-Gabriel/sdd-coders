@@ -60,7 +60,34 @@ def test_doctor_reports_missing_tools(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "Missing tools" in result.stdout
 
 
-def test_add_feature_creates_spec(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def _setup_project(tmp_path: Path) -> None:
+    """Create the minimum directory structure of a generated project."""
+    (tmp_path / "specs" / "functional").mkdir(parents=True)
+    (tmp_path / "specs" / "functional" / "_template.md").write_text("# Template", encoding="utf-8")
+    (tmp_path / "backend" / "app" / "api" / "routes").mkdir(parents=True)
+    (tmp_path / "backend" / "tests" / "integration").mkdir(parents=True)
+    (tmp_path / "frontend" / "app").mkdir(parents=True)
+
+
+def test_add_feature_creates_spec_and_stubs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _setup_project(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(app, ["add-feature", "billing"])
+
+    assert result.exit_code == 0
+    assert (tmp_path / "specs" / "functional" / "billing.md").read_text(encoding="utf-8") == "# Template"
+    assert (tmp_path / "backend" / "app" / "api" / "routes" / "billing.py").exists()
+    assert (tmp_path / "frontend" / "app" / "billing" / "page.tsx").exists()
+    assert (tmp_path / "backend" / "tests" / "integration" / "test_billing.py").exists()
+    assert "billing" in result.stdout
+
+
+def test_add_feature_creates_spec_only_when_no_stubs_dirs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     functional = tmp_path / "specs" / "functional"
     functional.mkdir(parents=True)
     (functional / "_template.md").write_text("# Template", encoding="utf-8")
@@ -69,7 +96,9 @@ def test_add_feature_creates_spec(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     result = runner.invoke(app, ["add-feature", "billing"])
 
     assert result.exit_code == 0
-    assert (functional / "billing.md").read_text(encoding="utf-8") == "# Template"
+    assert (functional / "billing.md").exists()
+    assert not (tmp_path / "backend").exists()
+    assert not (tmp_path / "frontend").exists()
 
 
 def test_add_feature_outside_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

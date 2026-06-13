@@ -5,10 +5,11 @@
 ## Componentes
 
 ```
-frontend/  Next.js (App Router) + TypeScript strict + Tailwind + shadcn/ui
+frontend/  Next.js (App Router) + TypeScript strict + Tailwind + shadcn/ui + next-themes
 backend/   FastAPI + Pydantic v2 + SQLAlchemy 2.0 async + Alembic   (uv)
 db         PostgreSQL 16 + RLS
-infra/     Dockerfiles endurecidos + docker-compose
+redis      Redis 7 (rate-limit + ban counters; in-memory em dev, standalone em prod)
+infra/     Dockerfiles endurecidos + docker-compose + Terraform + Ansible
 docs/      MkDocs Material (+ mkdocstrings)
 ```
 

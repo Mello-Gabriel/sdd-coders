@@ -50,10 +50,13 @@ _Quais tarefas o usuário precisa concluir? ("Quando ___, quero ___, para ___.")
 
 _Liste as telas previstas e o propósito de cada uma. (Isto vira a navegação.)_
 
+> As 4 telas padrão já vêm no template. Adicione as específicas do seu produto.
+
 | Página | Propósito | Quem acessa |
 | --- | --- | --- |
-| `/login` | Autenticação | Público |
+| `/login` | Autenticação (+ verificar e-mail) | Público |
 | `/` (dashboard) | Visão principal | Autenticado |
+| `/settings` | Preferências, privacidade/LGPD, trocar senha | Autenticado |
 | `/admin` | Administração | Admin |
 | TODO | TODO | TODO |
 
@@ -82,14 +85,20 @@ _Quais entidades existem e como se relacionam? Quais dados são **pessoais (PII)
 
 _Pagamentos, e-mail, storage, APIs de terceiros, etc._
 
-- TODO
+> Defaults já configurados no template (configurar via env):
+> - **E-mail transacional**: Resend (default) | SMTP | MemoryProvider (testes)
+> - **Captcha anti-abuso**: Cloudflare Turnstile (desativado por default; ativar com `APP_TURNSTILE_ENABLED=true`)
+> - **Analytics**: Google Analytics 4 via Consent Mode (só dispara após consentimento; configurar `NEXT_PUBLIC_GA_ID`)
+
+- Integrações específicas deste produto: TODO
 
 ## 11. Requisitos não-funcionais específicos
 
 _Volume esperado, latência, picos, multi-tenant?, idiomas, acessibilidade._
 
-> Os NFRs padrão (segurança, RLS, observabilidade, 100% de testes) já vêm da
-> constituição. Aqui registre apenas o que é **específico deste produto**.
+> Os NFRs padrão (segurança, RLS, observabilidade, 100% de testes, rate limit +
+> ban de IP, e-mail verificado obrigatório) já vêm da constituição.
+> Aqui registre apenas o que é **específico deste produto**.
 
 - TODO
 
