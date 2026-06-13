@@ -38,10 +38,14 @@ site/
 
 # OS / editor
 .DS_Store
+Thumbs.db
 
-.obsidian
+# Obsidian
+.obsidian/
+*.excalidraw
+*.excalidraw.md
+Excalidraw/
 
-Excalidraw
-
+# Obsidian Canvas / Base
 *.base
 *.canvas
