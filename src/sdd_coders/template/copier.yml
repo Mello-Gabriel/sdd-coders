@@ -32,6 +32,8 @@ _exclude:
   - "**/playwright-report"
   - "**/test-results"
   - "**/*.tsbuildinfo"
+  - "**/storybook-static"
+  - "**/storybook-static/**"
 
 project_name:
   type: str

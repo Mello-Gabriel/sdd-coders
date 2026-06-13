@@ -9,6 +9,8 @@ from app.models import User
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tests.integration.conftest import fetch_user_id
+
 PW = "supersecret123"
 
 
@@ -16,8 +18,8 @@ async def _auth(
     client: AsyncClient, owner_session: AsyncSession, email: str = "a@example.com"
 ) -> None:
     creds = {"email": email, "password": PW}
-    resp = await client.post("/auth/register", json=creds)
-    user = await owner_session.get(User, resp.json()["id"])
+    await client.post("/auth/register", json=creds)
+    user = await owner_session.get(User, uuid.UUID(await fetch_user_id(owner_session, email)))
     assert user is not None
     user.email_verified = True
     await owner_session.commit()

@@ -12,8 +12,10 @@ from app.main import app
 from app.models import RefreshToken, User
 from app.services.email import MemoryProvider, get_email_provider
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from tests.integration.conftest import fetch_user_id
 
 CREDENTIALS = {"email": "user@example.com", "password": "supersecret123"}
 
@@ -29,10 +31,10 @@ def _clear_email_outbox() -> None:
         provider.clear()
 
 
-async def _register(client: AsyncClient) -> str:
+async def _register(client: AsyncClient, owner_session: AsyncSession) -> str:
     response = await client.post("/auth/register", json=CREDENTIALS)
-    assert response.status_code == 201
-    return str(response.json()["id"])
+    assert response.status_code == 202
+    return await fetch_user_id(owner_session, CREDENTIALS["email"])
 
 
 async def _set_verified(
@@ -52,7 +54,7 @@ async def _set_active(owner_session: AsyncSession, user_id: str, *, active: bool
 
 
 async def _register_and_login(client: AsyncClient, owner_session: AsyncSession) -> str:
-    user_id = await _register(client)
+    user_id = await _register(client, owner_session)
     await _set_verified(owner_session, user_id)
     response = await client.post("/auth/login", json=CREDENTIALS)
     assert response.status_code == 200
@@ -62,14 +64,16 @@ async def _register_and_login(client: AsyncClient, owner_session: AsyncSession) 
 # --- register --------------------------------------------------------------
 
 
-async def test_register_creates_user(client: AsyncClient) -> None:
+async def test_register_creates_user(client: AsyncClient, owner_session: AsyncSession) -> None:
     response = await client.post("/auth/register", json=CREDENTIALS)
-    assert response.status_code == 201
-    body = response.json()
-    assert body["email"] == CREDENTIALS["email"]
-    assert body["role"] == "user"
-    assert body["is_active"] is True
-    assert body["email_verified"] is False
+    assert response.status_code == 202
+    user_id = await fetch_user_id(owner_session, CREDENTIALS["email"])
+    user = await owner_session.get(User, uuid.UUID(user_id))
+    assert user is not None
+    assert user.email == CREDENTIALS["email"]
+    assert user.role == "user"
+    assert user.is_active is True
+    assert user.email_verified is False
 
 
 async def test_register_sends_verification_email(client: AsyncClient) -> None:
@@ -80,17 +84,29 @@ async def test_register_sends_verification_email(client: AsyncClient) -> None:
     assert "verify" in provider.outbox[0].html.lower()
 
 
-async def test_register_duplicate_conflicts(client: AsyncClient) -> None:
-    await _register(client)
+async def test_register_duplicate_is_silently_ignored(
+    client: AsyncClient, owner_session: AsyncSession
+) -> None:
+    # Anti-enumeration: a duplicate registration returns the same 202 and does
+    # not create a second account or leak that the email is taken.
+    await _register(client, owner_session)
+    provider = get_email_provider()
+    assert isinstance(provider, MemoryProvider)
+    provider.clear()
     response = await client.post("/auth/register", json=CREDENTIALS)
-    assert response.status_code == 409
+    assert response.status_code == 202
+    assert len(provider.outbox) == 0  # no second email
+    count = len(
+        (await owner_session.scalars(select(User).where(User.email == CREDENTIALS["email"]))).all()
+    )
+    assert count == 1
 
 
 # --- login -----------------------------------------------------------------
 
 
 async def test_login_sets_cookies(client: AsyncClient, owner_session: AsyncSession) -> None:
-    user_id = await _register(client)
+    user_id = await _register(client, owner_session)
     await _set_verified(owner_session, user_id)
     response = await client.post("/auth/login", json=CREDENTIALS)
     assert response.status_code == 200
@@ -98,15 +114,17 @@ async def test_login_sets_cookies(client: AsyncClient, owner_session: AsyncSessi
     assert client.cookies.get("refresh_token") is not None
 
 
-async def test_login_blocked_when_not_verified(client: AsyncClient) -> None:
-    await _register(client)
+async def test_login_blocked_when_not_verified(
+    client: AsyncClient, owner_session: AsyncSession
+) -> None:
+    await _register(client, owner_session)
     response = await client.post("/auth/login", json=CREDENTIALS)
     assert response.status_code == 403
     assert "verified" in response.json()["detail"].lower()
 
 
-async def test_login_wrong_password(client: AsyncClient) -> None:
-    await _register(client)
+async def test_login_wrong_password(client: AsyncClient, owner_session: AsyncSession) -> None:
+    await _register(client, owner_session)
     response = await client.post(
         "/auth/login", json={"email": CREDENTIALS["email"], "password": "wrong-password"}
     )
@@ -121,7 +139,7 @@ async def test_login_unknown_email(client: AsyncClient) -> None:
 
 
 async def test_login_inactive_user(client: AsyncClient, owner_session: AsyncSession) -> None:
-    user_id = await _register(client)
+    user_id = await _register(client, owner_session)
     await _set_active(owner_session, user_id, active=False)
     response = await client.post("/auth/login", json=CREDENTIALS)
     assert response.status_code == 401
@@ -185,6 +203,26 @@ async def test_refresh_rotates_and_revokes_old(
     assert replay.status_code == 401
 
 
+async def test_refresh_reuse_revokes_token_family(
+    client: AsyncClient, owner_session: AsyncSession
+) -> None:
+    await _register_and_login(client, owner_session)
+    old_refresh = client.cookies.get("refresh_token")
+    rotated = await client.post("/auth/refresh")
+    assert rotated.status_code == 200
+    new_refresh = client.cookies.get("refresh_token")
+    # Replaying the already-rotated (revoked) token signals theft → burn the family.
+    async with _bare_client() as bare:
+        replay = await bare.post(
+            "/auth/refresh", headers={"Cookie": f"refresh_token={old_refresh}"}
+        )
+    assert replay.status_code == 401
+    # The freshly issued token is now revoked too — the whole chain is dead.
+    async with _bare_client() as bare:
+        after = await bare.post("/auth/refresh", headers={"Cookie": f"refresh_token={new_refresh}"})
+    assert after.status_code == 401
+
+
 async def test_refresh_missing_cookie(client: AsyncClient) -> None:
     response = await client.post("/auth/refresh")
     assert response.status_code == 401
@@ -208,7 +246,7 @@ async def test_refresh_unknown_row(client: AsyncClient) -> None:
 
 
 async def test_refresh_expired(client: AsyncClient, owner_session: AsyncSession) -> None:
-    user_id = await _register(client)
+    user_id = await _register(client, owner_session)
     past = dt.datetime.now(tz=dt.UTC) - dt.timedelta(days=1)
     owner_session.add(
         RefreshToken(jti="expired-jti", user_id=uuid.UUID(user_id), expires_at=past, revoked=False)
@@ -265,8 +303,10 @@ async def test_request_verification_no_op_for_unknown_email(client: AsyncClient)
     assert response.status_code == 204
 
 
-async def test_request_verification_sends_email(client: AsyncClient) -> None:
-    await _register(client)
+async def test_request_verification_sends_email(
+    client: AsyncClient, owner_session: AsyncSession
+) -> None:
+    await _register(client, owner_session)
     provider = get_email_provider()
     assert isinstance(provider, MemoryProvider)
     provider.clear()
@@ -278,7 +318,7 @@ async def test_request_verification_sends_email(client: AsyncClient) -> None:
 async def test_request_verification_already_verified(
     client: AsyncClient, owner_session: AsyncSession
 ) -> None:
-    user_id = await _register(client)
+    user_id = await _register(client, owner_session)
     await _set_verified(owner_session, user_id)
     provider = get_email_provider()
     assert isinstance(provider, MemoryProvider)
@@ -288,8 +328,10 @@ async def test_request_verification_already_verified(
     assert len(provider.outbox) == 0
 
 
-async def test_verify_email_token_marks_verified(client: AsyncClient) -> None:
-    await _register(client)
+async def test_verify_email_token_marks_verified(
+    client: AsyncClient, owner_session: AsyncSession
+) -> None:
+    await _register(client, owner_session)
     provider = get_email_provider()
     assert isinstance(provider, MemoryProvider)
     email = provider.outbox[0]
@@ -314,8 +356,10 @@ async def test_request_password_reset_no_op_unknown_email(client: AsyncClient) -
     assert response.status_code == 204
 
 
-async def test_request_password_reset_sends_email(client: AsyncClient) -> None:
-    await _register(client)
+async def test_request_password_reset_sends_email(
+    client: AsyncClient, owner_session: AsyncSession
+) -> None:
+    await _register(client, owner_session)
     provider = get_email_provider()
     assert isinstance(provider, MemoryProvider)
     provider.clear()
@@ -330,7 +374,7 @@ async def test_request_password_reset_sends_email(client: AsyncClient) -> None:
 async def test_reset_password_updates_credentials(
     client: AsyncClient, owner_session: AsyncSession
 ) -> None:
-    user_id = await _register(client)
+    user_id = await _register(client, owner_session)
     await _set_verified(owner_session, user_id)
     provider = get_email_provider()
     assert isinstance(provider, MemoryProvider)
@@ -352,6 +396,28 @@ async def test_reset_password_invalid_token(client: AsyncClient) -> None:
         "/auth/reset-password", json={"token": "garbage", "new_password": "newPassword999"}
     )
     assert response.status_code == 400
+
+
+async def test_reset_password_token_is_single_use(
+    client: AsyncClient, owner_session: AsyncSession
+) -> None:
+    user_id = await _register(client, owner_session)
+    await _set_verified(owner_session, user_id)
+    provider = get_email_provider()
+    assert isinstance(provider, MemoryProvider)
+    provider.clear()
+    await client.post("/auth/request-password-reset", json={"email": CREDENTIALS["email"]})
+    token = provider.outbox[0].html.split("token=")[1].split("'")[0]
+    first = await client.post(
+        "/auth/reset-password", json={"token": token, "new_password": "newPassword999"}
+    )
+    assert first.status_code == 200
+    # The same token is now stale: the password fingerprint it embedded no longer
+    # matches, so replaying it must fail.
+    second = await client.post(
+        "/auth/reset-password", json={"token": token, "new_password": "anotherPass999"}
+    )
+    assert second.status_code == 400
 
 
 # --- change password -------------------------------------------------------

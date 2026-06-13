@@ -36,8 +36,11 @@ function jsonBody(value: unknown): RequestInit {
 }
 
 export const api = {
-  register: (email: string, password: string, turnstileToken = ""): Promise<User> =>
-    request<User>("/auth/register", {
+  // Register returns a generic acknowledgement (202), never the user — the
+  // endpoint is anti-enumeration, so the response is identical whether or not
+  // the email already exists. The user then verifies via the emailed link.
+  register: (email: string, password: string, turnstileToken = ""): Promise<void> =>
+    request<void>("/auth/register", {
       method: "POST",
       ...jsonBody({ email, password, turnstile_token: turnstileToken }),
     }),

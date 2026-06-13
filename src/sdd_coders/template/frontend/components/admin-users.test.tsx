@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/api/client", () => ({ api: { listUsers: vi.fn(), updateUser: vi.fn() } }));
 
 function user(id: string, email: string, isActive: boolean): User {
-  return { id, email, role: "user", is_active: isActive };
+  return { id, email, role: "user", is_active: isActive, email_verified: true };
 }
 
 describe("AdminUsers", () => {

@@ -12,6 +12,13 @@
     "lineWidth": 100
   },
   "files": {
-    "ignore": ["node_modules", ".next", "coverage", "next-env.d.ts", "playwright-report"]
+    "ignore": [
+      "node_modules",
+      ".next",
+      "coverage",
+      "next-env.d.ts",
+      "playwright-report",
+      "storybook-static"
+    ]
   }
 }

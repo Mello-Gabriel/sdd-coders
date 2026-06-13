@@ -12,6 +12,8 @@ from app.services.email import MemoryProvider, get_email_provider
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tests.integration.conftest import fetch_user_id
+
 PW = "supersecret123"
 ADMIN_EMAIL = "admin@example.com"
 
@@ -24,8 +26,8 @@ async def _set_verified(session: AsyncSession, user_id: str) -> None:
 
 
 async def _auth(client: AsyncClient, email: str, owner_session: AsyncSession) -> str:
-    response = await client.post("/auth/register", json={"email": email, "password": PW})
-    user_id = str(response.json()["id"])
+    await client.post("/auth/register", json={"email": email, "password": PW})
+    user_id = await fetch_user_id(owner_session, email)
     await _set_verified(owner_session, user_id)
     await client.post("/auth/login", json={"email": email, "password": PW})
     return user_id
@@ -38,8 +40,8 @@ async def admin_client(owner_session: AsyncSession) -> AsyncIterator[AsyncClient
     if isinstance(provider, MemoryProvider):
         provider.clear()
     client = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
-    register = await client.post("/auth/register", json={"email": ADMIN_EMAIL, "password": PW})
-    admin_id = uuid.UUID(str(register.json()["id"]))
+    await client.post("/auth/register", json={"email": ADMIN_EMAIL, "password": PW})
+    admin_id = uuid.UUID(await fetch_user_id(owner_session, ADMIN_EMAIL))
     user = await owner_session.get(User, admin_id)
     assert user is not None
     user.role = "admin"

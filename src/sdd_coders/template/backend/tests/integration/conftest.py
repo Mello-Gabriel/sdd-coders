@@ -19,7 +19,7 @@ from app.db.rls import apply_rls, ensure_app_role, grant_app_privileges
 from app.main import app
 from app.models import Base, Project, User
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -27,6 +27,16 @@ OWNER_URL = os.environ.get(
     "TEST_OWNER_DATABASE_URL",
     "postgresql+asyncpg://postgres:postgres@localhost:55432/app",
 )
+
+
+async def fetch_user_id(session: AsyncSession, email: str) -> str:
+    """Look up a user's id by email.
+
+    /auth/register returns a generic 202 (anti-enumeration), so tests resolve
+    the freshly created user through the owner session instead of the response.
+    """
+    user = (await session.scalars(select(User).where(User.email == email))).one()
+    return str(user.id)
 
 
 async def _build_schema() -> None:

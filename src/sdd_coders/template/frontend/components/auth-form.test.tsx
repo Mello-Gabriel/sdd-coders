@@ -58,7 +58,7 @@ describe("AuthForm", () => {
   });
 
   it("registers and redirects to /verify-email", async () => {
-    vi.mocked(api.register).mockResolvedValue(sampleUser);
+    vi.mocked(api.register).mockResolvedValue(undefined);
     const user = userEvent.setup();
     render(<AuthForm mode="register" />);
 
@@ -69,7 +69,7 @@ describe("AuthForm", () => {
   });
 
   it("sends the Turnstile token when the widget is enabled", async () => {
-    vi.mocked(api.register).mockResolvedValue(sampleUser);
+    vi.mocked(api.register).mockResolvedValue(undefined);
     const user = userEvent.setup();
     render(<AuthForm mode="register" turnstileSiteKey="0x4AAA" />);
 

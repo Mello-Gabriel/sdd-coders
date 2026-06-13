@@ -81,6 +81,18 @@ async def test_reset_password_user_not_found_returns_none() -> None:
     assert result is None
 
 
+async def test_reset_password_fingerprint_mismatch_returns_none() -> None:
+    # A reset token whose password fingerprint no longer matches (already used or
+    # password changed) must be rejected — single-use enforcement.
+    user = MagicMock()
+    user.id = uuid.uuid4()
+    user.hashed_password = "current-hash"
+    session = _mock_session(get_return=user)
+    token = _token(str(user.id), RESET_TOKEN)  # no/old 'pwd' claim
+    result = await reset_password(session, token, "newpass123")
+    assert result is None
+
+
 async def test_change_password_user_not_found_returns_false() -> None:
     user = MagicMock()
     user.id = uuid.uuid4()

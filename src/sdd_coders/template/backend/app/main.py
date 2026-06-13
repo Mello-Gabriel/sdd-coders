@@ -6,28 +6,43 @@ import uuid
 from collections.abc import Awaitable, Callable
 
 from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from app.api.routes import admin, auth, health, projects
+from app.core.config import get_settings
 from app.core.limiter import limiter
 from app.middleware.ip_ban import ip_ban_middleware
 
+# The API serves JSON only; a tight CSP plus framing/sniffing defenses suffice.
 _SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "no-referrer",
+    "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+    "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
 }
+# Only sent outside development (HSTS over plain HTTP would be a footgun locally).
+_HSTS = "max-age=63072000; includeSubDomains; preload"
 
 
 def create_app() -> FastAPI:
     """Build and configure the FastAPI application."""
     app = FastAPI(title="app", version="0.1.0")
+    settings = get_settings()
 
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
     app.add_middleware(SlowAPIMiddleware)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     @app.middleware("http")
     async def ip_ban_gate(
@@ -46,6 +61,8 @@ def create_app() -> FastAPI:
         response.headers["X-Request-ID"] = request_id
         for header, value in _SECURITY_HEADERS.items():
             response.headers[header] = value
+        if settings.environment != "development":
+            response.headers["Strict-Transport-Security"] = _HSTS
         return response
 
     app.include_router(health.router)

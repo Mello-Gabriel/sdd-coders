@@ -6,10 +6,11 @@ import datetime as dt
 import uuid
 
 import jwt
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.db import SERVICE_CONTEXT, session_scope
 from app.core.security import (
     ACCESS_TOKEN,
     REFRESH_TOKEN,
@@ -19,6 +20,10 @@ from app.core.security import (
     verify_password,
 )
 from app.models import RefreshToken, User
+
+# A fixed valid Argon2 hash used to equalize timing when the email is unknown,
+# so an attacker cannot distinguish "no such user" from "wrong password".
+_DUMMY_HASH = hash_password("timing-equalization-placeholder")
 
 
 async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
@@ -35,13 +40,14 @@ async def register_user(session: AsyncSession, email: str, password: str) -> Use
 
 
 async def authenticate(session: AsyncSession, email: str, password: str) -> User | None:
-    """Return the user if email + password are valid and the account is active."""
+    """Return the user if email + password are valid and the account is active.
+
+    Always runs a password verification (against a dummy hash when the email is
+    unknown) so response timing does not reveal whether an account exists.
+    """
     user = await get_user_by_email(session, email)
-    if user is None:
-        return None
-    if not user.is_active:
-        return None
-    if not verify_password(password, user.hashed_password):
+    password_ok = verify_password(password, user.hashed_password if user else _DUMMY_HASH)
+    if user is None or not password_ok or not user.is_active:
         return None
     return user
 
@@ -73,13 +79,35 @@ def _decode_refresh(token: str) -> dict[str, object] | None:
     return claims
 
 
+async def revoke_all_refresh(session: AsyncSession, user_id: uuid.UUID) -> None:
+    """Revoke every refresh token for a user (password change / theft response)."""
+    await session.execute(
+        update(RefreshToken).where(RefreshToken.user_id == user_id).values(revoked=True)
+    )
+
+
+async def _revoke_all_refresh_committed(user_id: uuid.UUID) -> None:
+    """Revoke a user's tokens in a dedicated, immediately-committed transaction.
+
+    The reuse-detection path returns None and the caller then responds 401, which
+    rolls back the request's own transaction — so the revocation must commit on
+    its own to actually stick. Runs in the service RLS context: refresh_tokens has
+    RLS enabled, so without a context the UPDATE would match zero rows.
+    """
+    async with session_scope(SERVICE_CONTEXT) as session:
+        await revoke_all_refresh(session, user_id)
+
+
 async def rotate_tokens(session: AsyncSession, token: str) -> tuple[User, str, str] | None:
     """Validate a refresh token, revoke it, and issue a fresh pair (rotation)."""
     claims = _decode_refresh(token)
-    if claims is None:
+    row = await _refresh_row(session, str(claims.get("jti", ""))) if claims else None
+    if row is None:
         return None
-    row = await _refresh_row(session, str(claims.get("jti", "")))
-    if row is None or row.revoked:
+    if row.revoked:
+        # A revoked token being presented again means the rotation chain was
+        # replayed — presume the token was stolen and burn the whole family.
+        await _revoke_all_refresh_committed(row.user_id)
         return None
     if row.expires_at < dt.datetime.now(tz=dt.UTC):
         return None

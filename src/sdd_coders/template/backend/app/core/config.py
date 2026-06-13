@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import logging
+import secrets
 from functools import lru_cache
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -57,10 +61,22 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _require_secret_outside_dev(self) -> Settings:
-        """Refuse to start without a JWT secret in non-development environments."""
-        if self.environment != "development" and not self.jwt_secret:
-            msg = "APP_JWT_SECRET must be set outside development"
-            raise ValueError(msg)
+        """Refuse to start without a JWT secret outside development.
+
+        In development a missing secret is replaced with an ephemeral random one
+        (logged loudly): convenient locally, and — crucially — it means a prod
+        deploy that forgot ``APP_ENVIRONMENT`` never silently runs on an empty
+        secret. Outside development a missing secret is a hard error.
+        """
+        if not self.jwt_secret:
+            if self.environment != "development":
+                msg = "APP_JWT_SECRET must be set outside development"
+                raise ValueError(msg)
+            object.__setattr__(self, "jwt_secret", secrets.token_hex(32))
+            logger.warning(
+                "APP_JWT_SECRET is unset; generated an ephemeral development secret. "
+                "Tokens will not survive a restart. Set APP_JWT_SECRET for stability."
+            )
         return self
 
 

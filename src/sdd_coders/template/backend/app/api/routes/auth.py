@@ -39,6 +39,13 @@ from app.services.verification import (
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+# Generic response for register: identical whether or not the email already
+# exists, so the endpoint cannot be used to enumerate accounts.
+_REGISTER_ACCEPTED = {"detail": "Se o e-mail for válido, você receberá um link de confirmação."}
+
+# The refresh cookie is only ever sent to /auth/* routes, limiting its exposure.
+_REFRESH_PATH = "/auth"
+
 
 def _set_auth_cookies(response: Response, access: str, refresh: str) -> None:
     settings = get_settings()
@@ -59,31 +66,34 @@ def _set_auth_cookies(response: Response, access: str, refresh: str) -> None:
         secure=secure,
         samesite="lax",
         max_age=settings.refresh_token_ttl_seconds,
-        path="/",
+        path=_REFRESH_PATH,
     )
 
 
-@router.post("/register", status_code=status.HTTP_201_CREATED)
+@router.post("/register", status_code=status.HTTP_202_ACCEPTED)
 @limiter.limit("3/minute")
-async def register(request: Request, payload: RegisterRequest, session: ServiceSession) -> UserRead:
+async def register(
+    request: Request, payload: RegisterRequest, session: ServiceSession
+) -> dict[str, str]:
     if not await verify_turnstile(payload.turnstile_token):
         await register_failure(get_client_ip(request), reason="captcha (register)")
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Captcha inválido"
         )
-    if await get_user_by_email(session, payload.email) is not None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
-    user = await register_user(session, payload.email, payload.password)
-    await record_audit(
-        session,
-        actor_id=user.id,
-        actor_role="user",
-        action="register",
-        entity_type="user",
-        entity_id=str(user.id),
-    )
-    await send_verification_email(user)
-    return UserRead.model_validate(user)
+    # Anti-enumeration: a duplicate email is silently ignored and returns the
+    # same body as a fresh signup. Existing users simply don't get a new account.
+    if await get_user_by_email(session, payload.email) is None:
+        user = await register_user(session, payload.email, payload.password)
+        await record_audit(
+            session,
+            actor_id=user.id,
+            actor_role="user",
+            action="register",
+            entity_type="user",
+            entity_id=str(user.id),
+        )
+        await send_verification_email(user)
+    return _REGISTER_ACCEPTED
 
 
 @router.post("/login")
@@ -138,7 +148,7 @@ async def logout(request: Request, session: ServiceSession) -> Response:
         await revoke_refresh(session, token)
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     response.delete_cookie(ACCESS_COOKIE, path="/")
-    response.delete_cookie(REFRESH_COOKIE, path="/")
+    response.delete_cookie(REFRESH_COOKIE, path=_REFRESH_PATH)
     return response
 
 
