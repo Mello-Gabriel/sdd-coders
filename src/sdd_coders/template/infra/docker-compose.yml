@@ -13,8 +13,10 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    # Bind to loopback only: Docker publishes ports past the host firewall (UFW),
+    # so "55432:5432" would expose Postgres to the internet on a VPS.
     ports:
-      - "55432:5432"
+      - "127.0.0.1:55432:5432"
 
   redis:
     image: redis:7-alpine
@@ -40,14 +42,15 @@ services:
       APP_TURNSTILE_ENABLED: ${APP_TURNSTILE_ENABLED:-false}
       APP_TURNSTILE_SECRET_KEY: ${APP_TURNSTILE_SECRET_KEY:-}
       ALEMBIC_DATABASE_URL: ${ALEMBIC_DATABASE_URL}
-    command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+    # Migrations run from the image entrypoint (alembic upgrade head), so no
+    # command override is needed here.
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
 
   frontend:
     build:
@@ -60,7 +63,27 @@ services:
     depends_on:
       - backend
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
+
+  # Opt-in daily pg_dump with retention. Enable with:
+  #   docker compose --profile backup up -d backup
+  backup:
+    image: postgres:16-alpine
+    profiles: ["backup"]
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+    volumes:
+      - ./scripts/backup.sh:/backup.sh:ro
+      - pgbackups:/backups
+    entrypoint: ["sh", "/backup.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   pgdata:
+  pgbackups:

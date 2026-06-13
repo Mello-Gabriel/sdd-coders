@@ -8,11 +8,23 @@ variable "domain" {
   type        = string
 }
 
-# --- Hostinger ---
+# --- VPS / Hostinger ---
+
+variable "vps_ip" {
+  description = "Public IP of the VPS (create it manually in hPanel; see setup guide)"
+  type        = string
+}
+
+variable "manage_vps" {
+  description = "Provision the VPS via the Hostinger API instead of using a manual one"
+  type        = bool
+  default     = false
+}
 
 variable "hostinger_api_key" {
-  description = "Hostinger API key (https://www.hostinger.com/cpanel/api-tokens)"
+  description = "Hostinger API key (only needed when manage_vps = true)"
   type        = string
+  default     = ""
   sensitive   = true
 }
 

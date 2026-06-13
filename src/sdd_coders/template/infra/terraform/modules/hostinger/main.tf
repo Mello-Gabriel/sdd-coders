@@ -1,8 +1,12 @@
-# Hostinger does not yet have a stable Terraform provider.
-# VPS provisioning is done via the Hostinger API using null_resource + local-exec.
-# Replace with the official provider when available.
+# Hostinger has no official, stable Terraform provider. The supported path is to
+# create the VPS by hand in hPanel (see docs/guides/setup.md) and pass its IP in
+# via var.vps_ip. The optional null_resource below can call the Hostinger API for
+# fully-automated provisioning, but it is OFF by default (var.manage_vps = false)
+# because the API surface changes and the call is not idempotent.
 
 resource "null_resource" "vps" {
+  count = var.manage_vps ? 1 : 0
+
   triggers = {
     app_name = var.app_name
     vps_plan = var.vps_plan
@@ -10,15 +14,16 @@ resource "null_resource" "vps" {
   }
 
   provisioner "local-exec" {
+    # The API key is passed through the environment, never interpolated into the
+    # command line (which would leak it into process listings and TF logs).
+    environment = {
+      HOSTINGER_API_KEY = var.api_key
+    }
     command = <<-EOT
-      curl -s -X POST "https://api.hostinger.com/v1/vps" \
-        -H "Authorization: Bearer ${var.api_key}" \
+      curl -fsS -X POST "https://api.hostinger.com/v1/vps" \
+        -H "Authorization: Bearer $HOSTINGER_API_KEY" \
         -H "Content-Type: application/json" \
-        -d '{"name":"${var.app_name}","plan":"${var.vps_plan}","region":"${var.region}"}' \
-        | tee /tmp/hostinger_vps.json
+        -d '{"name":"${var.app_name}","plan":"${var.vps_plan}","region":"${var.region}"}'
     EOT
   }
 }
-
-# VPS IP is populated after provisioning. In a real workflow, read it from
-# the API response or a data source after the resource is created.

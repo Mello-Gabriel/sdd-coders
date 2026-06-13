@@ -103,6 +103,20 @@
         groups: docker
         append: true
 
+    # Docker publishes container ports straight into iptables, bypassing UFW. By
+    # default-binding published ports to loopback, a stray "8000:8000" in a
+    # compose file is not silently exposed to the internet (defense in depth with
+    # the 127.0.0.1 binds already in docker-compose.yml).
+    - name: Bind published Docker ports to loopback by default
+      ansible.builtin.copy:
+        dest: /etc/docker/daemon.json
+        content: |
+          {
+            "ip": "127.0.0.1"
+          }
+        mode: "0644"
+      notify: Restart Docker
+
   handlers:
     - name: Restart SSH
       ansible.builtin.service:
@@ -112,4 +126,9 @@
     - name: Restart fail2ban
       ansible.builtin.service:
         name: fail2ban
+        state: restarted
+
+    - name: Restart Docker
+      ansible.builtin.service:
+        name: docker
         state: restarted

@@ -5,14 +5,28 @@ on:
     tags:
       - "v*.*.*"
 
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
 jobs:
   deploy-prod:
     name: Deploy to prod
     runs-on: ubuntu-latest
-    environment: prod  # requires manual approval from configured reviewers
+    environment: prod # requires manual approval from configured reviewers
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push backend image
         uses: docker/build-push-action@v5
@@ -24,6 +38,7 @@ jobs:
             ghcr.io/${{ github.repository }}/backend:prod
             ghcr.io/${{ github.repository }}/backend:${{ github.ref_name }}
 
+      # NEXT_PUBLIC_* are inlined into the client bundle at build time → build-args.
       - name: Build and push frontend image
         uses: docker/build-push-action@v5
         with:
@@ -33,10 +48,10 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}/frontend:prod
             ghcr.io/${{ github.repository }}/frontend:${{ github.ref_name }}
-        env:
-          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL_PROD }}
-          NEXT_PUBLIC_GA_ID: ${{ vars.NEXT_PUBLIC_GA_ID }}
-          NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL_PROD }}
+            NEXT_PUBLIC_GA_ID=${{ vars.NEXT_PUBLIC_GA_ID }}
+            NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
 
       - name: Trigger Coolify deploy — backend (prod)
         run: |

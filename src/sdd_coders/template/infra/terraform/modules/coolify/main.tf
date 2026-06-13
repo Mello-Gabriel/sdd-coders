@@ -1,9 +1,6 @@
-# Coolify does not have an official Terraform provider.
-# Environments and applications are managed via the Coolify REST API.
-
-locals {
-  coolify_headers = "-H \"Authorization: Bearer ${var.coolify_token}\" -H \"Content-Type: application/json\""
-}
+# Coolify has no official Terraform provider. Environments are created via its
+# REST API. The token is passed through the environment (never interpolated into
+# the command line, which would leak it into TF logs / process listings).
 
 resource "null_resource" "coolify_dev_env" {
   triggers = {
@@ -11,11 +8,14 @@ resource "null_resource" "coolify_dev_env" {
   }
 
   provisioner "local-exec" {
+    environment = {
+      COOLIFY_TOKEN = var.coolify_token
+    }
     command = <<-EOT
-      curl -sf -X POST "${var.coolify_url}/api/v1/environments" \
-        ${local.coolify_headers} \
-        -d '{"name":"${var.app_name}-dev","project_uuid":"default"}' \
-        | tee /tmp/coolify_dev_env.json
+      curl -fsS -X POST "${var.coolify_url}/api/v1/environments" \
+        -H "Authorization: Bearer $COOLIFY_TOKEN" \
+        -H "Content-Type: application/json" \
+        -d '{"name":"${var.app_name}-dev","project_uuid":"default"}'
     EOT
   }
 }
@@ -26,11 +26,14 @@ resource "null_resource" "coolify_prod_env" {
   }
 
   provisioner "local-exec" {
+    environment = {
+      COOLIFY_TOKEN = var.coolify_token
+    }
     command = <<-EOT
-      curl -sf -X POST "${var.coolify_url}/api/v1/environments" \
-        ${local.coolify_headers} \
-        -d '{"name":"${var.app_name}-prod","project_uuid":"default"}' \
-        | tee /tmp/coolify_prod_env.json
+      curl -fsS -X POST "${var.coolify_url}/api/v1/environments" \
+        -H "Authorization: Bearer $COOLIFY_TOKEN" \
+        -H "Content-Type: application/json" \
+        -d '{"name":"${var.app_name}-prod","project_uuid":"default"}'
     EOT
   }
 }
