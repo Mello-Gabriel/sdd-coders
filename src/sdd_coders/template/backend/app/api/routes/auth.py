@@ -5,7 +5,9 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Request, Response, status
 
 from app.api.deps import ACCESS_COOKIE, REFRESH_COOKIE, CurrentUser, ServiceSession, UserSession
+from app.core.client_ip import get_client_ip
 from app.core.config import get_settings
+from app.core.limiter import limiter
 from app.schemas.auth import (
     ChangePasswordRequest,
     LoginRequest,
@@ -16,6 +18,7 @@ from app.schemas.auth import (
     UserRead,
     VerifyEmailRequest,
 )
+from app.services.abuse import register_failure
 from app.services.audit import record_audit
 from app.services.auth import (
     authenticate,
@@ -61,8 +64,10 @@ def _set_auth_cookies(response: Response, access: str, refresh: str) -> None:
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
-async def register(payload: RegisterRequest, session: ServiceSession) -> UserRead:
+@limiter.limit("3/minute")
+async def register(request: Request, payload: RegisterRequest, session: ServiceSession) -> UserRead:
     if not await verify_turnstile(payload.turnstile_token):
+        await register_failure(get_client_ip(request), reason="captcha (register)")
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Captcha inválido"
         )
@@ -82,9 +87,13 @@ async def register(payload: RegisterRequest, session: ServiceSession) -> UserRea
 
 
 @router.post("/login")
-async def login(payload: LoginRequest, response: Response, session: ServiceSession) -> UserRead:
+@limiter.limit("5/minute")
+async def login(
+    request: Request, payload: LoginRequest, response: Response, session: ServiceSession
+) -> UserRead:
     user = await authenticate(session, payload.email, payload.password)
     if user is None:
+        await register_failure(get_client_ip(request), reason="invalid credentials")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     if not user.email_verified:
         raise HTTPException(
@@ -105,6 +114,7 @@ async def login(payload: LoginRequest, response: Response, session: ServiceSessi
 
 
 @router.post("/refresh")
+@limiter.limit("30/minute")
 async def refresh(request: Request, response: Response, session: ServiceSession) -> UserRead:
     token = request.cookies.get(REFRESH_COOKIE)
     if token is None:
@@ -138,8 +148,9 @@ async def me(user: CurrentUser) -> UserRead:
 
 
 @router.post("/request-verification", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("3/hour")
 async def request_verification(
-    payload: RequestVerificationRequest, session: ServiceSession
+    request: Request, payload: RequestVerificationRequest, session: ServiceSession
 ) -> Response:
     user = await get_user_by_email(session, payload.email)
     if user is not None and not user.email_verified:
@@ -148,7 +159,10 @@ async def request_verification(
 
 
 @router.post("/verify-email")
-async def verify_email(payload: VerifyEmailRequest, session: ServiceSession) -> UserRead:
+@limiter.limit("10/minute")
+async def verify_email(
+    request: Request, payload: VerifyEmailRequest, session: ServiceSession
+) -> UserRead:
     user = await verify_email_token(session, payload.token)
     if user is None:
         raise HTTPException(
@@ -158,10 +172,12 @@ async def verify_email(payload: VerifyEmailRequest, session: ServiceSession) -> 
 
 
 @router.post("/request-password-reset", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("3/hour")
 async def request_password_reset(
-    payload: RequestPasswordResetRequest, session: ServiceSession
+    request: Request, payload: RequestPasswordResetRequest, session: ServiceSession
 ) -> Response:
     if not await verify_turnstile(payload.turnstile_token):
+        await register_failure(get_client_ip(request), reason="captcha (reset)")
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Captcha inválido"
         )
@@ -170,8 +186,9 @@ async def request_password_reset(
 
 
 @router.post("/reset-password")
+@limiter.limit("5/minute")
 async def reset_password_endpoint(
-    payload: ResetPasswordRequest, session: ServiceSession
+    request: Request, payload: ResetPasswordRequest, session: ServiceSession
 ) -> UserRead:
     user = await reset_password(session, payload.token, payload.new_password)
     if user is None:

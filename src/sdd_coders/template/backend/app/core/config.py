@@ -27,6 +27,15 @@ class Settings(BaseSettings):
     refresh_token_ttl_seconds: int = 7 * 24 * 60 * 60
     cors_origins: list[str] = Field(default_factory=list)
 
+    # Networks allowed to set X-Forwarded-For (the reverse proxy / load balancer).
+    # Defaults to localhost only; in prod add the Docker/ingress subnet via
+    # APP_TRUSTED_PROXIES='["127.0.0.1/32","10.0.0.0/8"]'.
+    trusted_proxies: list[str] = Field(default_factory=lambda: ["127.0.0.1/32", "::1/128"])
+
+    # Rate limiting is on by default; the test suite disables it globally and
+    # re-enables it for the dedicated rate-limit tests.
+    rate_limit_enabled: bool = True
+
     # Redis (optional; if empty, in-memory fallback is used for rate limiting)
     redis_url: str = ""
 

@@ -7,22 +7,19 @@ from collections.abc import Awaitable, Callable
 
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.client_ip import get_client_ip
 from app.core.db import engine
 from app.models.ip_ban import IpBan
 
 # Escalation ladder: violation_count → ban duration in minutes (0 = permanent)
 _BAN_LADDER: list[int | None] = [5, 30, 4 * 60, 24 * 60, None]
 
-
-def _get_client_ip(request: Request) -> str:
-    """Return the real client IP, trusting X-Forwarded-For only from localhost."""
-    forwarded_for = request.headers.get("X-Forwarded-For")
-    if forwarded_for and request.client and request.client.host in ("127.0.0.1", "::1"):
-        return forwarded_for.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+# Non-permanent ban rows are pruned once they are this old (LGPD data minimisation
+# for IP addresses, which are personal data).
+_RETENTION_DAYS = 30
 
 
 def ban_duration_for_count(violation_count: int) -> int | None:
@@ -35,8 +32,17 @@ async def _get_ban(session: AsyncSession, ip: str) -> IpBan | None:
     return (await session.scalars(select(IpBan).where(IpBan.ip_address == ip))).first()
 
 
+async def _prune_expired(session: AsyncSession) -> None:
+    """Delete old non-permanent ban rows (LGPD minimisation of IP data)."""
+    cutoff = dt.datetime.now(dt.UTC) - dt.timedelta(days=_RETENTION_DAYS)
+    await session.execute(
+        delete(IpBan).where(IpBan.is_permanent.is_(False), IpBan.updated_at < cutoff)
+    )
+
+
 async def record_ban_violation(session: AsyncSession, ip: str, reason: str = "") -> IpBan:
     """Create or escalate an IP ban entry. Returns the updated record."""
+    await _prune_expired(session)
     ban = await _get_ban(session, ip)
     if ban is None:
         ban = IpBan(ip_address=ip, violation_count=1, reason=reason)
@@ -63,7 +69,7 @@ async def ip_ban_middleware(
     call_next: Callable[[Request], Awaitable[Response]],
 ) -> Response:
     """Block requests from IPs that are actively banned."""
-    ip = _get_client_ip(request)
+    ip = get_client_ip(request)
 
     try:
         async with AsyncSession(engine) as session:

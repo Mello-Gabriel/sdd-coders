@@ -12,3 +12,6 @@ os.environ.setdefault(
     "APP_DATABASE_URL",
     "postgresql+asyncpg://app_user:app_pass@localhost:55432/app",
 )
+# Rate limiting is disabled globally for the suite (it would make most tests
+# flaky); the dedicated test in test_rate_limit.py re-enables it explicitly.
+os.environ.setdefault("APP_RATE_LIMIT_ENABLED", "false")
