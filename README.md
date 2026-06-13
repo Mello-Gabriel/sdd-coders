@@ -32,16 +32,19 @@ secure, tested, observable and standardized **by default** — not by discipline
 
 | Layer | Choice |
 | --- | --- |
-| Frontend | Next.js (App Router) + TypeScript + Tailwind, **Biome** |
+| Frontend | Next.js (App Router) + TypeScript + Tailwind + shadcn/ui, dark mode, **Biome** |
 | Backend | Python 3.13 + FastAPI + Pydantic v2 + SQLAlchemy async, **uv** |
 | Database | PostgreSQL with **Row-Level Security everywhere** |
-| Auth | Self-hosted (Argon2 + JWT), RLS context per request |
-| Tests | pytest / Vitest (100%), integration + Playwright E2E |
+| Auth | Self-hosted (Argon2 + JWT), RLS context per request, single-use reset + refresh-reuse detection |
+| Anti-abuse | Per-route rate limiting + escalating IP bans, Cloudflare Turnstile, mandatory email verification |
+| Tests | pytest / Vitest (100%), integration (incl. RLS isolation) + Playwright E2E |
 | Quality | ruff + mypy `--strict`, Biome + `tsc --strict` |
-| Container | Multi-stage, slim, **non-root** images |
-| CI/CD | GitHub Actions: lint, types, tests, build, scans, docs |
+| Container | Multi-stage, slim, **non-root** images; migrations run on start |
+| CI/CD | GitHub Actions: lint, types, tests, virgin-DB migrations, build, scans, docs |
+| Deploy | Coolify + Hostinger VPS + Cloudflare, **IaC** (Terraform + Ansible), dev/prod GitHub Environments |
+| Observability | structlog JSON + Prometheus `/metrics`; optional Grafana + Loki stack |
 | Docs | OpenAPI → typed TS client, MkDocs + mkdocstrings, ER diagram |
-| Compliance | **LGPD** cookie consent that actually gates, audit log, admin |
+| Compliance | **LGPD** cookie consent that actually gates + self-service export/delete/consent, audit log, admin |
 
 ## The workflow
 

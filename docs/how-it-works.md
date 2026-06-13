@@ -10,10 +10,13 @@ the way `uv init` scaffolds a Python project. It is built on **Copier**: only
 and build artifacts (`.venv`, `node_modules`) are excluded from the render.
 
 ```bash
-uvx sdd-coders init my-app          # scaffold
-sdd-coders add-feature billing      # new functional spec (inside a project)
+uvx sdd-coders init my-app          # scaffold (+ generates a local-dev .env)
+sdd-coders add-feature billing      # EARS spec + code stubs (router, page, test)
 sdd-coders doctor                   # check the toolchain
 ```
+
+`init` also writes a `.copier-answers.yml`, so a generated project can later run
+`copier update` to pull in fixes from a newer template version.
 
 ## 2. The specs (`template/specs/`)
 
@@ -22,8 +25,8 @@ Per-project work lives in:
 
 - `00-product-brief.md` — filled by the **interview** (business, not tech).
 - `functional/*.md` — feature specs in **EARS** notation (testable requirements).
-- `architecture/*.md` — the fixed technical specs (auth/RLS, security, LGPD,
-  admin, observability, audit, Docker).
+- `architecture/*.md` — the fixed technical specs (auth/RLS, security,
+  anti-abuse, LGPD, admin, observability, audit, Docker, deploy).
 
 The split is deliberate: you only ever decide the **what/why**; the **how** is
 the constitution.
@@ -44,9 +47,23 @@ The same toolkit is also distributable as a Claude Code **plugin**
 ## The reference app
 
 The template is not just specs — it includes a **working** fullstack app
-(`backend/`, `frontend/`, `infra/`): auth + RLS, projects CRUD, admin, LGPD
-banner, hardened Docker, full CI, 100% test coverage. New features extend this
-foundation rather than starting from a blank page.
+(`backend/`, `frontend/`, `infra/`): auth + RLS with single-use reset tokens and
+refresh-reuse detection, anti-abuse (per-route rate limits + escalating IP bans +
+Turnstile + email verification), projects CRUD, admin, LGPD banner **plus
+self-service data export / deletion / consent**, structured logging and a
+Prometheus `/metrics` endpoint, hardened Docker, full CI (including a virgin-DB
+migration check), 100% test coverage. New features extend this foundation rather
+than starting from a blank page.
+
+## Deploy & observability
+
+`infra/` ships infrastructure-as-code: Terraform (Cloudflare DNS + edge rate
+limiting, Coolify environments) and an Ansible hardening playbook, plus dev/prod
+deploy workflows gated by GitHub Environments. A separate
+`infra/monitoring/` compose brings up Prometheus + Grafana + Loki + Promtail +
+Node Exporter — or point the app at Grafana Cloud. See
+[`template/docs/guides/setup.md`](../src/sdd_coders/template/docs/guides/setup.md)
+for the full one-time setup.
 
 ## Documentation is a build artifact
 
