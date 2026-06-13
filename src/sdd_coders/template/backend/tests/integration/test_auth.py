@@ -51,9 +51,7 @@ async def _set_active(owner_session: AsyncSession, user_id: str, *, active: bool
     await owner_session.commit()
 
 
-async def _register_and_login(
-    client: AsyncClient, owner_session: AsyncSession
-) -> str:
+async def _register_and_login(client: AsyncClient, owner_session: AsyncSession) -> str:
     user_id = await _register(client)
     await _set_verified(owner_session, user_id)
     response = await client.post("/auth/login", json=CREDENTIALS)
@@ -263,9 +261,7 @@ async def test_logout_ignores_unknown_row(client: AsyncClient) -> None:
 
 
 async def test_request_verification_no_op_for_unknown_email(client: AsyncClient) -> None:
-    response = await client.post(
-        "/auth/request-verification", json={"email": "ghost@example.com"}
-    )
+    response = await client.post("/auth/request-verification", json={"email": "ghost@example.com"})
     assert response.status_code == 204
 
 
@@ -274,9 +270,7 @@ async def test_request_verification_sends_email(client: AsyncClient) -> None:
     provider = get_email_provider()
     assert isinstance(provider, MemoryProvider)
     provider.clear()
-    response = await client.post(
-        "/auth/request-verification", json={"email": CREDENTIALS["email"]}
-    )
+    response = await client.post("/auth/request-verification", json={"email": CREDENTIALS["email"]})
     assert response.status_code == 204
     assert len(provider.outbox) == 1
 
@@ -289,9 +283,7 @@ async def test_request_verification_already_verified(
     provider = get_email_provider()
     assert isinstance(provider, MemoryProvider)
     provider.clear()
-    response = await client.post(
-        "/auth/request-verification", json={"email": CREDENTIALS["email"]}
-    )
+    response = await client.post("/auth/request-verification", json={"email": CREDENTIALS["email"]})
     assert response.status_code == 204
     assert len(provider.outbox) == 0
 

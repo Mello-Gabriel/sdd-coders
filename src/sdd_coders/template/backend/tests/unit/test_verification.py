@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
+from collections.abc import Iterator
 from unittest.mock import AsyncMock, MagicMock
 
 import jwt
@@ -22,7 +23,7 @@ from app.services.verification import (
 
 
 @pytest.fixture(autouse=True)
-def _clear_settings_cache() -> None:
+def _clear_settings_cache() -> Iterator[None]:
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

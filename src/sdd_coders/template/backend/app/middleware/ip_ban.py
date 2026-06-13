@@ -32,9 +32,7 @@ def ban_duration_for_count(violation_count: int) -> int | None:
 
 
 async def _get_ban(session: AsyncSession, ip: str) -> IpBan | None:
-    return (
-        await session.scalars(select(IpBan).where(IpBan.ip_address == ip))
-    ).first()
+    return (await session.scalars(select(IpBan).where(IpBan.ip_address == ip))).first()
 
 
 async def record_ban_violation(session: AsyncSession, ip: str, reason: str = "") -> IpBan:

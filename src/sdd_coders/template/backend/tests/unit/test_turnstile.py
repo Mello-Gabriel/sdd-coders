@@ -36,9 +36,7 @@ async def test_verify_valid_token(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("APP_TURNSTILE_ENABLED", "true")
     monkeypatch.setenv("APP_TURNSTILE_SECRET_KEY", "secret")
     get_settings.cache_clear()
-    respx.post(_VERIFY_URL).mock(
-        return_value=httpx.Response(200, json={"success": True})
-    )
+    respx.post(_VERIFY_URL).mock(return_value=httpx.Response(200, json={"success": True}))
     result = await verify_turnstile("valid-token")
     assert result is True
 

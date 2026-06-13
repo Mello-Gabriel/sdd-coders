@@ -42,9 +42,7 @@ async def test_resend_provider_sends_request(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setenv("APP_RESEND_API_KEY", "re_test_key")
     monkeypatch.setenv("APP_EMAIL_FROM", "noreply@app.com")
     get_settings.cache_clear()
-    route = respx.post(_RESEND_URL).mock(
-        return_value=httpx.Response(200, json={"id": "abc"})
-    )
+    route = respx.post(_RESEND_URL).mock(return_value=httpx.Response(200, json={"id": "abc"}))
     provider = ResendProvider()
     await provider.send(_MSG)
     assert route.called
@@ -70,9 +68,7 @@ async def test_resend_provider_no_text(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("APP_RESEND_API_KEY", "re_test_key")
     monkeypatch.setenv("APP_EMAIL_FROM", "noreply@app.com")
     get_settings.cache_clear()
-    route = respx.post(_RESEND_URL).mock(
-        return_value=httpx.Response(200, json={"id": "abc"})
-    )
+    route = respx.post(_RESEND_URL).mock(return_value=httpx.Response(200, json={"id": "abc"}))
     provider = ResendProvider()
     await provider.send(_MSG_NO_TEXT)
     assert route.called

@@ -51,9 +51,7 @@ async def test_record_escalates_existing_ban(owner_session: AsyncSession) -> Non
     await record_ban_violation(owner_session, "1.2.3.4")
     await record_ban_violation(owner_session, "1.2.3.4")
     await owner_session.commit()
-    ban = (await owner_session.scalars(
-        select(IpBan).where(IpBan.ip_address == "1.2.3.4")
-    )).first()
+    ban = (await owner_session.scalars(select(IpBan).where(IpBan.ip_address == "1.2.3.4"))).first()
     assert ban is not None
     assert ban.violation_count == 2
     assert ban_duration_for_count(2) == 30
@@ -63,9 +61,7 @@ async def test_record_fifth_violation_is_permanent(owner_session: AsyncSession) 
     for _ in range(5):
         await record_ban_violation(owner_session, "9.9.9.9")
     await owner_session.commit()
-    ban = (await owner_session.scalars(
-        select(IpBan).where(IpBan.ip_address == "9.9.9.9")
-    )).first()
+    ban = (await owner_session.scalars(select(IpBan).where(IpBan.ip_address == "9.9.9.9"))).first()
     assert ban is not None
     assert ban.is_permanent is True
     assert ban.banned_until is None
@@ -84,9 +80,7 @@ async def test_middleware_blocks_active_ban(owner_session: AsyncSession) -> None
     )
     owner_session.add(ban)
     await owner_session.commit()
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.get("/health/live")
     assert response.status_code == 429
     assert "Retry-After" in response.headers
@@ -101,9 +95,7 @@ async def test_middleware_blocks_permanent_ban(owner_session: AsyncSession) -> N
     )
     owner_session.add(ban)
     await owner_session.commit()
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.get("/health/live")
     assert response.status_code == 403
 
@@ -117,9 +109,7 @@ async def test_middleware_allows_expired_ban(owner_session: AsyncSession) -> Non
     )
     owner_session.add(ban)
     await owner_session.commit()
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.get("/health/live")
     assert response.status_code == 200
 
