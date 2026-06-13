@@ -16,12 +16,19 @@
 
 ## 2. Direitos do titular (endpoints)
 
-| Direito | Endpoint |
-| --- | --- |
-| Acesso/portabilidade | `GET /me/data-export` (gera arquivo com os dados pessoais) |
-| Exclusão | `DELETE /me` (apaga/anonimiza conforme retenção legal) |
-| Correção | fluxos normais de edição |
-| Revogar consentimento | `POST /me/consent` |
+| Direito | Endpoint | Implementação |
+| --- | --- | --- |
+| Acesso/portabilidade | `GET /me/data-export` | JSON com user + projects + consents + trilha de audit do próprio usuário |
+| Exclusão | `DELETE /me` | **anonimiza** (e-mail → `deleted-<id>@anon.invalid`), desativa, apaga projetos próprios, revoga tokens, audita |
+| Correção | fluxos normais de edição | — |
+| Consentimento | `GET`/`POST /me/consent` | histórico append-only na tabela `consents` (RLS por dono) |
+
+- **Registro de consentimento** é persistido no backend (`consents`: versão,
+  categorias, timestamp) além do `localStorage` do banner — base para a trilha de
+  auditoria LGPD. A tela `/settings` é o ponto único de self-service.
+- **Retenção de IPs**: a tabela `ip_bans` (dado pessoal) tem expurgo lazy de
+  registros não-permanentes após 30 dias; bans permanentes permanecem por
+  legítimo interesse de segurança.
 
 ## 3. Princípios de dados
 

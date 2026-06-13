@@ -36,18 +36,31 @@ push → CI (lint + types + tests + build + IaC validate) → OK?
           tag v*.*.* ─────────▶ deploy-prod.yml → aguarda aprovação → deploy
 ```
 
+## Build & migrations
+
+- **`NEXT_PUBLIC_*` são build-time**: inlinados no bundle do cliente, entram como
+  `--build-arg` no build do frontend (não como env de runtime).
+- A imagem do backend roda **`alembic upgrade head` no entrypoint** antes de subir
+  o servidor (`ALEMBIC_DATABASE_URL` = role owner). Starter single-replica; com
+  múltiplas réplicas, rodar migrations como passo de release separado.
+- Imagens publicadas no **GHCR** (login via `GITHUB_TOKEN`, `packages: write`).
+
 ## Terraform
 
 - **Não** usa `apply` no CI — só `fmt`, `validate`, `tflint`.
 - `apply` manual por humano após `terraform plan` revisado.
 - Estado remoto recomendado (ex: bucket S3 ou Terraform Cloud).
-- Providers: `cloudflare/cloudflare` (DNS + WAF), `hashicorp/null` (Hostinger API
-  + Coolify API via `local-exec`).
+- Providers: `cloudflare/cloudflare` (DNS + **rate limit na borda**),
+  `hashicorp/null` (Coolify API via `local-exec`; cada módulo declara seu
+  `required_providers`). VPS Hostinger é criado **manualmente** (`var.vps_ip`);
+  provisionamento via API é opt-in (`manage_vps = true`). Segredos passam pelo
+  bloco `environment` do `local-exec`, nunca interpolados na linha de comando.
 
 ## Ansible
 
 - Playbook `infra/ansible/playbooks/harden.yml`: SSH key-only, UFW, fail2ban,
-  Docker, unattended-upgrades.
+  Docker, unattended-upgrades, e `/etc/docker/daemon.json` `{"ip":"127.0.0.1"}`
+  (Docker fura o UFW; portas publicadas ficam em loopback por default).
 - Sempre rodar com `--check` antes de aplicar em prod.
 - Nunca armazenar senhas no playbook — usar Ansible Vault ou variáveis de ambiente.
 

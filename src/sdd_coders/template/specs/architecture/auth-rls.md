@@ -7,16 +7,28 @@
 
 - **Senha:** Argon2id (via `passlib`/`argon2-cffi`). Política mínima configurável.
 - **Tokens:** JWT **access** (curto, ~15min) + **refresh** (longo, rotacionado).
-  Ambos em cookies **`HttpOnly; Secure; SameSite=Lax`**. Refresh tem `jti` e é
-  rastreado/revogável (tabela `refresh_tokens`); logout revoga.
+  Ambos em cookies **`HttpOnly; Secure; SameSite=Lax`**; o refresh é escopado em
+  `path=/auth`. Refresh tem `jti`, é rastreado/revogável (`refresh_tokens`);
+  **rotação com detecção de reuso**: reapresentar um refresh já rotacionado é
+  presumido como roubo e **revoga toda a família** de tokens do usuário.
+- **Tokens de uso único:** o token de **reset** carrega um fingerprint do hash da
+  senha (`sha256(hash)[:16]`); quando a senha muda (inclusive ao usar o token), o
+  fingerprint não bate mais e o token é rejeitado. Reset e troca de senha bem-
+  sucedidos **revogam todos os refresh tokens**.
 - **E-mail verificado obrigatório:** login bloqueado até verificar. Token de
-  verificação de uso único; reenviável via `/auth/request-verification`.
+  verificação reenviável via `/auth/request-verification`.
 - **Endpoints:** `POST /auth/register`, `/auth/login`, `/auth/refresh`,
   `/auth/logout`, `/auth/me`, `/auth/request-verification`, `/auth/verify-email`,
   `/auth/request-password-reset`, `/auth/reset-password`, `/auth/change-password`.
-- **Proteções:** rate limit progressivo (`slowapi`/Redis) + ban de IP escalado
-  (5→30→240→1440→permanente, middleware + tabela `ip_bans`); **Turnstile** em
-  register e reset; timing-safe; mensagens genéricas (não revelam se e-mail existe).
+- **Anti-enumeração:** `register` responde sempre **202** com corpo genérico
+  (e-mail existente é silenciosamente ignorado); `login` roda um hash Argon2 dummy
+  para e-mail inexistente (timing constante).
+- **Rate limit por rota** (`slowapi`, chave = IP real atrás de proxy confiável;
+  Redis em prod): login 5/min, register 3/min, verify/reset request 3/h, etc.
+  **Strikes → ban de IP**: 5 falhas (login inválido / captcha) em 15min escalam
+  para o ban escalado (5→30→240→1440→permanente, `ip_bans` + middleware).
+  **Turnstile** em register e reset. IPs em `ip_bans` têm retenção de 30 dias
+  (limpeza lazy).
 
 ## 2. Autorização
 

@@ -374,7 +374,13 @@ Edite com os valores coletados nos passos anteriores:
 app_name = "myapp"
 domain   = "example.com"
 
-hostinger_api_key  = "<HOSTINGER_API_KEY>"
+# O VPS é criado manualmente no Passo 3; cole o IP aqui.
+vps_ip = "<IP_DO_VPS>"
+
+# Provisionamento automático do VPS via API da Hostinger é opt-in (off por
+# default). O caminho suportado é o VPS manual acima.
+manage_vps         = false
+hostinger_api_key  = "" # só necessário se manage_vps = true
 hostinger_vps_plan = "KVM 2"
 hostinger_region   = "eu-west-1"
 
@@ -440,6 +446,53 @@ git push origin v0.1.0
 curl https://api.example.com/health
 # {"status":"ok","db":"ok","redis":"ok"}
 ```
+
+### 10.4 Criar o primeiro admin
+
+O cadastro normal cria sempre um usuário comum. Para criar/promover o admin
+inicial, rode dentro do container backend (ou localmente com as creds de prod):
+
+```bash
+uv run python -m app.scripts.create_admin admin@example.com 'umaSenhaForte123'
+```
+
+O comando é idempotente (cria ou promove) e já marca o e-mail como verificado.
+
+---
+
+## Passo 10.5 — Observabilidade (opcional)
+
+Métricas, logs e traces são **sinais distintos**: métricas→Prometheus,
+logs→Loki, traces→Tempo. **Logs não vão para o Prometheus.**
+
+- **Recomendado:** Grafana Cloud (free tier) — gerenciado, sobrevive à queda do VPS.
+- **Self-hosted:** `docker compose -f infra/monitoring/docker-compose.yml up -d`
+  (Prometheus + Grafana + Loki + Promtail + Node Exporter). Detalhes e o túnel SSH
+  para o Grafana em `infra/monitoring/README.md`.
+
+O backend já expõe `GET /metrics` (Prometheus) e loga JSON estruturado por request.
+
+---
+
+## Passo 10.6 — Backup do banco
+
+O compose tem um serviço de backup opt-in (pg_dump diário, retenção 7 dias):
+
+```bash
+docker compose -f infra/docker-compose.yml --profile backup up -d backup
+```
+
+Restaurar um dump:
+
+```bash
+gunzip -c /caminho/do/backup.sql.gz | \
+  docker compose -f infra/docker-compose.yml exec -T db psql -U postgres app
+```
+
+> **Atenção (Docker × UFW):** o Docker publica portas direto no iptables,
+> furando o UFW. Por isso o compose faz bind em `127.0.0.1` e o Ansible escreve
+> `/etc/docker/daemon.json` com `{"ip":"127.0.0.1"}`. Exponha serviços ao mundo
+> **apenas** via Cloudflare/Coolify, nunca publicando a porta direto.
 
 ---
 

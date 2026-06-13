@@ -12,13 +12,19 @@
 - [ ] **CORS** restrito a origens conhecidas (lista por ambiente).
 - [ ] **CSRF**: cookies `SameSite=Lax` + token anti-CSRF em mutações state-changing
       quando aplicável.
-- [ ] **Rate limiting progressivo** (`slowapi`/Redis): global + reforçado em auth.
-      **Ban de IP escalado**: 5→30→240→1440→permanente (middleware + tabela `ip_bans`).
-      **Cloudflare Turnstile** em register e reset-password.
-- [ ] **E-mail verificado** obrigatório antes do primeiro login.
-- [ ] **Segredos** só via env/secret manager. `.env` no `.gitignore`.
+- [ ] **Rate limiting por rota** (`slowapi`, chave = IP real; Redis em prod) +
+      **strikes → ban de IP** escalado 5→30→240→1440→permanente (`ip_bans`).
+      **Cloudflare Turnstile** em register/reset e **rate limit na borda** (WAF).
+- [ ] **E-mail verificado** obrigatório; tokens de reset **single-use**
+      (fingerprint do hash) e revogação de sessões na troca de senha.
+- [ ] **Segredos** só via env/secret manager. `.env` no `.gitignore`. Fora de dev,
+      app **não sobe** sem `APP_JWT_SECRET` (em dev, gera efêmero — nunca vazio).
 - [ ] **SQL**: sempre parametrizado (SQLAlchemy). Sem string interpolation.
-- [ ] **Uploads**: validar tipo/tamanho; armazenar fora do webroot; antivírus quando aplicável.
+- [ ] **Headers**: CSP/HSTS/Permissions-Policy no backend (JSON) e no Next.js.
+- [ ] **Exposição de portas**: bind em `127.0.0.1` no compose + `daemon.json`
+      `{"ip":"127.0.0.1"}` no VPS — Docker fura o UFW por default.
+- [ ] **Migrations** aplicadas no deploy (entrypoint `alembic upgrade head`);
+      CI roda migrations em banco virgem (`upgrade→downgrade→upgrade`).
 - [ ] **Erros**: mensagens genéricas ao cliente; detalhes só nos logs (sem PII).
 - [ ] **Dependências**: Dependabot/renovate; sem libs banidas; lockfiles versionados.
 

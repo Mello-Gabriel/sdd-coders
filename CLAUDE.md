@@ -32,9 +32,10 @@ uv run ruff check .               # lint
 uv run mypy .                     # strict type checking
 ```
 
-The test database is Docker Postgres at `localhost:55432`. Start it with:
+The test database is Docker Postgres at `localhost:55432`. The compose service is
+named `db` (not `postgres`). Start it with:
 ```bash
-docker compose -f src/sdd_coders/template/infra/docker-compose.yml up -d postgres
+docker compose -f src/sdd_coders/template/infra/docker-compose.yml up -d db
 ```
 
 ## Working on the frontend template
@@ -116,5 +117,15 @@ token_url = provider.outbox[0].text.split()[-1]
 - **Detached SQLAlchemy instances**: always reload with `session.get(User, user.id)` before writing to an object loaded in a different session.
 - **RLS sequence grants**: `autoincrement` columns need both `GRANT ... ON TABLE` AND `GRANT USAGE, SELECT ON SEQUENCE`.
 - **ASGI test transport**: `httpx.ASGITransport` sets `request.client.host = "127.0.0.1"`, not `"testclient"`.
-- **X-Forwarded-For**: only trust when direct client is `127.0.0.1` or `::1` (localhost/trusted proxy).
+- **X-Forwarded-For**: only trust when the direct peer is a configured trusted proxy (CIDR list in `Settings.trusted_proxies`); walk the header right-to-left to the first untrusted hop (`app/core/client_ip.py`).
 - **`lru_cache` in tests**: always call `get_settings.cache_clear()` and `get_email_provider.cache_clear()` before/after tests that monkeypatch env vars.
+
+## Lessons learned (v3 remediation)
+
+- **Migrations must be explicit.** Never use `Base.metadata.create_all()` in a migration — the live ORM schema drifts and the migration stops matching prior revisions. Use literal `op.create_table`. The CI `migrations` job runs `upgrade → downgrade → upgrade` on a virgin DB to catch this.
+- **Coverage ≠ integration.** 100% unit coverage hid features that were never wired (rate limiting, IP-ban ladder). Test the production path: migrations on a fresh DB, the anti-abuse flow end-to-end.
+- **The engine CI does not run the template's own gates.** Template backend/frontend `ruff/mypy/biome/tsc` only run in *generated* projects, so drift accumulates here unnoticed — run them manually when touching the template.
+- **RLS + INSERT needs `WITH CHECK`.** A policy with only `USING` does not gate INSERT, so the insert is denied. Add `WITH CHECK` for any table users insert into (e.g. `consents`).
+- **RLS + cross-session writes.** A write done in a request that then raises (e.g. 401) is rolled back. For durable side effects (strike counting, refresh-family revocation) open a dedicated committed session — and set the right RLS context, or the UPDATE matches zero rows.
+- **`NEXT_PUBLIC_*` are build-time.** They're inlined into the client bundle, so they must be Docker `--build-arg`s, not runtime env.
+- **Three signals.** Metrics→Prometheus, logs→Loki, traces→Tempo. Logs never go to Prometheus.
