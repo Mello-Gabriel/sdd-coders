@@ -34,6 +34,14 @@ def test_request_id_is_propagated() -> None:
     assert response.headers["X-Request-ID"] == "abc-123"
 
 
+def test_metrics_endpoint_exposes_prometheus() -> None:
+    # Generate at least one request so counters exist, then scrape /metrics.
+    client.get("/health/live")
+    response = client.get("/metrics")
+    assert response.status_code == 200
+    assert "http_request" in response.text
+
+
 def test_hsts_sent_outside_development(monkeypatch: pytest.MonkeyPatch) -> None:
     prod_settings = Settings(environment="production", jwt_secret="x" * 32)
     monkeypatch.setattr("app.main.get_settings", lambda: prod_settings)

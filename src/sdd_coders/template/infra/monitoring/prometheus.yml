@@ -1,0 +1,20 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: node
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  # The FastAPI backend's /metrics endpoint. host.docker.internal resolves to the
+  # host gateway (see extra_hosts in docker-compose.yml); the backend publishes
+  # 127.0.0.1:8000 on the host. Point this at the right address for your setup.
+  - job_name: backend
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["host.docker.internal:8000"]
