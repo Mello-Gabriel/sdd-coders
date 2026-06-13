@@ -39,6 +39,50 @@ jobs:
       - run: uv run mypy
       - run: uv run pytest
 
+  migrations:
+    name: Migrations (virgin DB up/down/up)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: app
+        ports:
+          - "5432:5432"
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      ALEMBIC_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/app
+      APP_JWT_SECRET: ci-secret-not-for-production-0123456789
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+      - run: uv python install
+      - run: uv sync --dev
+      # The migration grants privileges to app_user, which must exist first
+      # (production provisions it out of band; here we mirror that).
+      - name: Provision app_user role
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d app -c "CREATE ROLE app_user LOGIN PASSWORD 'app_pass' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;"
+      # This is the check that would have caught the squashed-migration bug:
+      # a fresh database must migrate cleanly, roll back, and migrate again.
+      - name: Upgrade (virgin DB)
+        run: uv run alembic upgrade head
+      - name: Downgrade to base
+        run: uv run alembic downgrade base
+      - name: Upgrade again
+        run: uv run alembic upgrade head
+
   frontend:
     name: Frontend (lint, types, tests, build)
     runs-on: ubuntu-latest

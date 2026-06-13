@@ -62,18 +62,36 @@ _RLS_STATEMENTS: tuple[str, ...] = (
         "CREATE POLICY audit_admin_select ON audit_log FOR SELECT "
         "USING (current_setting('app.current_role', true) = 'admin')"
     ),
+    (
+        "CREATE POLICY audit_service_select ON audit_log FOR SELECT "
+        "USING (current_setting('app.current_role', true) = 'service')"
+    ),
     "CREATE POLICY audit_insert ON audit_log FOR INSERT WITH CHECK (true)",
+    # --- consents (append-only history; owner reads own, admin reads all) --
+    "ALTER TABLE consents ENABLE ROW LEVEL SECURITY",
+    "ALTER TABLE consents FORCE ROW LEVEL SECURITY",
+    (
+        "CREATE POLICY consents_owner ON consents USING "
+        "(user_id = nullif(current_setting('app.current_user_id', true), '')::uuid)"
+    ),
+    (
+        "CREATE POLICY consents_admin ON consents FOR SELECT "
+        "USING (current_setting('app.current_role', true) = 'admin')"
+    ),
 )
 
 # audit_log intentionally omits UPDATE/DELETE grants → append-only.
+# consents likewise omits UPDATE/DELETE → append-only history.
 _GRANT_STATEMENTS: tuple[str, ...] = (
     "GRANT USAGE ON SCHEMA public TO app_user",
     "GRANT SELECT, INSERT, UPDATE, DELETE ON users TO app_user",
     "GRANT SELECT, INSERT, UPDATE, DELETE ON projects TO app_user",
     "GRANT SELECT, INSERT, UPDATE, DELETE ON refresh_tokens TO app_user",
     "GRANT SELECT, INSERT ON audit_log TO app_user",
+    "GRANT SELECT, INSERT ON consents TO app_user",
     # ip_bans: not user-specific data; middleware reads/writes without RLS context.
-    "GRANT SELECT, INSERT, UPDATE ON ip_bans TO app_user",
+    # DELETE is needed for lazy retention cleanup of expired non-permanent bans.
+    "GRANT SELECT, INSERT, UPDATE, DELETE ON ip_bans TO app_user",
     "GRANT USAGE, SELECT ON SEQUENCE ip_bans_id_seq TO app_user",
 )
 

@@ -2,6 +2,7 @@
 
 from app.models.audit import AuditLog
 from app.models.base import Base, TimestampMixin
+from app.models.consent import Consent
 from app.models.ip_ban import IpBan
 from app.models.project import Project
 from app.models.refresh_token import RefreshToken
@@ -10,6 +11,7 @@ from app.models.user import User
 __all__ = [
     "AuditLog",
     "Base",
+    "Consent",
     "IpBan",
     "Project",
     "RefreshToken",
