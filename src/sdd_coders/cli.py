@@ -7,6 +7,8 @@ and wires up the spec-driven, multi-agent workflow.
 
 from __future__ import annotations
 
+import re
+import secrets
 import shutil
 import textwrap
 from pathlib import Path
@@ -27,6 +29,48 @@ app = typer.Typer(
 )
 
 REQUIRED_TOOLS = ("git", "uv", "node", "npm", "docker")
+
+# Project and feature names become directory/file paths and identifiers, so they
+# are restricted to a safe slug (also blocks path traversal like "../etc").
+_SLUG = re.compile(r"^[a-z][a-z0-9-]{1,62}$")
+
+
+def _validate_slug(value: str, kind: str) -> str:
+    if not _SLUG.match(value):
+        typer.echo(
+            f"Invalid {kind} '{value}': use lowercase letters, digits and hyphens "
+            f"(start with a letter, 2-63 chars)."
+        )
+        raise typer.Exit(code=1)
+    return value
+
+
+def _write_dev_env(path: Path) -> None:
+    """Write a working local-dev .env with a freshly generated JWT secret."""
+    env_path = path / ".env"
+    if env_path.exists():
+        return
+    jwt_secret = secrets.token_hex(32)
+    env_path.write_text(
+        textwrap.dedent(f"""\
+            # Local development defaults (matches infra/docker-compose.yml).
+            # Production secrets live in Coolify / GitHub Secrets — never here.
+            APP_ENVIRONMENT=development
+            POSTGRES_USER=postgres
+            POSTGRES_PASSWORD=postgres
+            POSTGRES_DB=app
+            APP_DATABASE_URL=postgresql+asyncpg://app_user:app_pass@localhost:55432/app
+            ALEMBIC_DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:55432/app
+            REDIS_PASSWORD=redis
+            APP_REDIS_URL=redis://:redis@localhost:6379/0
+            APP_JWT_SECRET={jwt_secret}
+            APP_EMAIL_PROVIDER=memory
+            APP_TURNSTILE_ENABLED=false
+            APP_FRONTEND_URL=http://localhost:3000
+            NEXT_PUBLIC_API_URL=http://localhost:8000
+        """),
+        encoding="utf-8",
+    )
 
 
 @app.callback()
@@ -49,10 +93,16 @@ def init(
     ] = None,
 ) -> None:
     """Scaffold a new project from the template."""
-    project_name = name or path.name
+    project_name = _validate_slug(name or path.name, "project name")
     scaffold_project(path, project_name)
+    _write_dev_env(path)
     typer.echo(f"Created project '{project_name}' in {path}")
-    typer.echo("Next: open it in Claude Code and run /sdd-interview")
+    typer.echo("Next steps:")
+    typer.echo("  1. cd into it and `docker compose -f infra/docker-compose.yml up -d db`")
+    typer.echo(
+        "  2. create the first admin: `uv run python -m app.scripts.create_admin <email> <pw>`"
+    )
+    typer.echo("  3. open it in Claude Code and run /sdd-interview")
 
 
 @app.command()
@@ -70,6 +120,7 @@ def add_feature(
     name: Annotated[str, typer.Argument(help="Feature slug, e.g. billing")],
 ) -> None:
     """Create a functional spec + code stubs for a new feature (run inside a project)."""
+    name = _validate_slug(name, "feature name")
     template = Path("specs/functional/_template.md")
     if not template.exists():
         typer.echo("Run this inside a generated project (specs/functional/_template.md not found)")
@@ -126,7 +177,7 @@ def _backend_router_stub(name: str) -> str:
 
 def _frontend_page_stub(name: str) -> str:
     title = name.replace("-", " ").title()
-    return textwrap.dedent(f'''\
+    return textwrap.dedent(f"""\
         export default function {title.replace(" ", "")}Page() {{
           return (
             <main className="min-h-screen bg-background p-6">
@@ -135,7 +186,7 @@ def _frontend_page_stub(name: str) -> str:
             </main>
           );
         }}
-    ''')
+    """)
 
 
 def _backend_test_stub(name: str) -> str:

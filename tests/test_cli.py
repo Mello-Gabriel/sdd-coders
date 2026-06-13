@@ -8,9 +8,15 @@ import pytest
 from typer.testing import CliRunner
 
 from sdd_coders import __version__
-from sdd_coders.cli import app
+from sdd_coders.cli import _write_dev_env, app
 
 runner = CliRunner()
+
+
+def test_write_dev_env_does_not_overwrite_existing(tmp_path: Path) -> None:
+    (tmp_path / ".env").write_text("EXISTING=1", encoding="utf-8")
+    _write_dev_env(tmp_path)
+    assert (tmp_path / ".env").read_text(encoding="utf-8") == "EXISTING=1"
 
 
 def test_version_command_prints_version() -> None:
@@ -37,6 +43,12 @@ def test_init_scaffolds_project(tmp_path: Path) -> None:
     assert "demo-app" in claude
     # node_modules / .venv are excluded from the render.
     assert not (dest / "frontend" / "node_modules").exists()
+    # A working local-dev .env is generated with a fresh JWT secret, and the
+    # Copier answers file is written so `copier update` works later.
+    env = (dest / ".env").read_text(encoding="utf-8")
+    assert "APP_JWT_SECRET=" in env
+    assert "APP_JWT_SECRET=\n" not in env  # non-empty
+    assert (dest / ".copier-answers.yml").is_file()
 
 
 def test_init_with_explicit_name(tmp_path: Path) -> None:
@@ -44,6 +56,12 @@ def test_init_with_explicit_name(tmp_path: Path) -> None:
     result = runner.invoke(app, ["init", str(dest), "--name", "custom-name"])
     assert result.exit_code == 0, result.stdout
     assert "custom-name" in (dest / "CLAUDE.md").read_text(encoding="utf-8")
+
+
+def test_init_rejects_invalid_name(tmp_path: Path) -> None:
+    result = runner.invoke(app, ["init", str(tmp_path / "dir"), "--name", "../evil"])
+    assert result.exit_code == 1
+    assert "Invalid project name" in result.stdout
 
 
 def test_doctor_reports_ok_when_tools_present(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -78,7 +96,9 @@ def test_add_feature_creates_spec_and_stubs(
     result = runner.invoke(app, ["add-feature", "billing"])
 
     assert result.exit_code == 0
-    assert (tmp_path / "specs" / "functional" / "billing.md").read_text(encoding="utf-8") == "# Template"
+    assert (tmp_path / "specs" / "functional" / "billing.md").read_text(
+        encoding="utf-8"
+    ) == "# Template"
     assert (tmp_path / "backend" / "app" / "api" / "routes" / "billing.py").exists()
     assert (tmp_path / "frontend" / "app" / "billing" / "page.tsx").exists()
     assert (tmp_path / "backend" / "tests" / "integration" / "test_billing.py").exists()
@@ -105,3 +125,10 @@ def test_add_feature_outside_project(tmp_path: Path, monkeypatch: pytest.MonkeyP
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(app, ["add-feature", "billing"])
     assert result.exit_code == 1
+
+
+def test_add_feature_rejects_invalid_name(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["add-feature", "../evil"])
+    assert result.exit_code == 1
+    assert "Invalid feature name" in result.stdout

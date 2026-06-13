@@ -18,5 +18,4 @@ def scaffold_project(destination: Path, project_name: str) -> None:
         data={"project_name": project_name},
         defaults=True,
         quiet=True,
-        unsafe=True,
     )
