@@ -77,6 +77,10 @@ describe("api client", () => {
     await api.listUsers();
     await api.updateUser("u1", { is_active: false });
     await api.listAudit();
+    await api.exportData();
+    await api.deleteAccount();
+    await api.getConsentRecord();
+    await api.saveConsentRecord(true, false);
 
     const calls = fetchMock.mock.calls.map(
       (call) => `${(call[1] as RequestInit).method ?? "GET"} ${call[0]}`,
@@ -96,6 +100,10 @@ describe("api client", () => {
       "GET http://localhost:8000/admin/users",
       "PATCH http://localhost:8000/admin/users/u1",
       "GET http://localhost:8000/admin/audit",
+      "GET http://localhost:8000/me/data-export",
+      "DELETE http://localhost:8000/me",
+      "GET http://localhost:8000/me/consent",
+      "POST http://localhost:8000/me/consent",
     ]);
   });
 });

@@ -31,3 +31,18 @@ export interface UserUpdate {
   is_active?: boolean;
   role?: "user" | "admin";
 }
+
+export interface ConsentRecord {
+  id: string;
+  version: number;
+  analytics: boolean;
+  marketing: boolean;
+  created_at: string;
+}
+
+export interface DataExport {
+  user: User;
+  projects: Project[];
+  consents: ConsentRecord[];
+  audit: Record<string, unknown>[];
+}

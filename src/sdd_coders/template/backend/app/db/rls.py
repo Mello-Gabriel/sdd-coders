@@ -71,8 +71,11 @@ _RLS_STATEMENTS: tuple[str, ...] = (
     "ALTER TABLE consents ENABLE ROW LEVEL SECURITY",
     "ALTER TABLE consents FORCE ROW LEVEL SECURITY",
     (
-        "CREATE POLICY consents_owner ON consents USING "
-        "(user_id = nullif(current_setting('app.current_user_id', true), '')::uuid)"
+        # WITH CHECK is required for INSERT under RLS — USING alone does not gate
+        # inserts, so a user could otherwise never record their own consent.
+        "CREATE POLICY consents_owner ON consents "
+        "USING (user_id = nullif(current_setting('app.current_user_id', true), '')::uuid) "
+        "WITH CHECK (user_id = nullif(current_setting('app.current_user_id', true), '')::uuid)"
     ),
     (
         "CREATE POLICY consents_admin ON consents FOR SELECT "

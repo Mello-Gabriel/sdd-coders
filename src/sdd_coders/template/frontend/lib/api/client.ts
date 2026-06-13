@@ -1,6 +1,13 @@
 /** Thin typed client over the backend API. Cookies carry the session. */
 
-import type { AuditEntry, Project, User, UserUpdate } from "@/lib/api/types";
+import type {
+  AuditEntry,
+  ConsentRecord,
+  DataExport,
+  Project,
+  User,
+  UserUpdate,
+} from "@/lib/api/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -76,4 +83,14 @@ export const api = {
   updateUser: (id: string, update: UserUpdate): Promise<User> =>
     request<User>(`/admin/users/${id}`, { method: "PATCH", ...jsonBody(update) }),
   listAudit: (): Promise<AuditEntry[]> => request<AuditEntry[]>("/admin/audit"),
+  // LGPD data-subject endpoints.
+  exportData: (): Promise<DataExport> => request<DataExport>("/me/data-export"),
+  deleteAccount: (): Promise<void> => request<void>("/me", { method: "DELETE" }),
+  getConsentRecord: (): Promise<ConsentRecord | null> =>
+    request<ConsentRecord | null>("/me/consent"),
+  saveConsentRecord: (analytics: boolean, marketing: boolean): Promise<ConsentRecord> =>
+    request<ConsentRecord>("/me/consent", {
+      method: "POST",
+      ...jsonBody({ analytics, marketing }),
+    }),
 };

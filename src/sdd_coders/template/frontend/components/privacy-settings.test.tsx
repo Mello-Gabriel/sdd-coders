@@ -1,11 +1,25 @@
 import { PrivacySettings } from "@/components/privacy-settings";
+import { api } from "@/lib/api/client";
 import { getConsent } from "@/lib/consent/consent";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/api/client", () => ({ api: { saveConsentRecord: vi.fn() } }));
+
+beforeEach(() => {
+  vi.mocked(api.saveConsentRecord).mockResolvedValue({
+    id: "1",
+    version: 1,
+    analytics: true,
+    marketing: false,
+    created_at: "2026-01-01T00:00:00Z",
+  });
+});
 
 afterEach(() => {
   window.localStorage.clear();
+  vi.clearAllMocks();
 });
 
 describe("PrivacySettings", () => {
@@ -57,5 +71,26 @@ describe("PrivacySettings", () => {
 
     await user.click(screen.getByRole("checkbox", { name: /Marketing/ }));
     expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("records the consent server-side on save", async () => {
+    const user = userEvent.setup();
+    render(<PrivacySettings />);
+
+    await user.click(screen.getByRole("checkbox", { name: /Analytics/ }));
+    await user.click(screen.getByRole("button", { name: "Salvar preferências" }));
+
+    expect(api.saveConsentRecord).toHaveBeenCalledWith(true, false);
+  });
+
+  it("still saves locally when the server call fails (e.g. logged out)", async () => {
+    vi.mocked(api.saveConsentRecord).mockRejectedValue(new Error("401"));
+    const user = userEvent.setup();
+    render(<PrivacySettings />);
+
+    await user.click(screen.getByRole("button", { name: "Salvar preferências" }));
+
+    expect(getConsent()).not.toBeNull();
+    expect(screen.getByRole("status")).toHaveTextContent("Preferências salvas.");
   });
 });

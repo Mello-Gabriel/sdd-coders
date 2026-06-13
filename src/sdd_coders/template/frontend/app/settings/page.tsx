@@ -1,3 +1,4 @@
+import { AccountData } from "@/components/account-data";
 import { ChangePasswordForm } from "@/components/change-password-form";
 import { PrivacySettings } from "@/components/privacy-settings";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -22,6 +23,10 @@ export default function SettingsPage() {
         <section>
           <h2 className="mb-4 text-base font-semibold text-foreground">Privacidade e cookies</h2>
           <PrivacySettings />
+        </section>
+        <section>
+          <h2 className="mb-4 text-base font-semibold text-foreground">Meus dados (LGPD)</h2>
+          <AccountData />
         </section>
       </main>
     </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { api } from "@/lib/api/client";
 import { CONSENT_VERSION, type Consent, getConsent, saveConsent } from "@/lib/consent/consent";
 import { type FormEvent, useEffect, useState } from "react";
 
@@ -22,6 +23,9 @@ export function PrivacySettings() {
     saveConsent(consent);
     window.dispatchEvent(new Event("cookie-consent-updated"));
     setSaved(true);
+    // Best-effort: also record the decision server-side for the LGPD audit
+    // trail. Silently ignored when the user is not authenticated.
+    void api.saveConsentRecord(analytics, marketing).catch(() => {});
   };
 
   return (
