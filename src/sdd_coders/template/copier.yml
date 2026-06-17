@@ -39,3 +39,14 @@ project_name:
   type: str
   help: "Project name (kebab-case, e.g. my-app)"
   default: "my-app"
+
+ui_theme:
+  type: str
+  help: "UI color theme (shadcn primary palette)"
+  default: "blue"
+  choices:
+    Blue: blue
+    Neutral (preto): neutral
+    Violet: violet
+    Emerald: emerald
+    Rose: rose

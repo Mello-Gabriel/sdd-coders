@@ -8,14 +8,15 @@ import pytest
 from typer.testing import CliRunner
 
 from sdd_coders import __version__
-from sdd_coders.cli import _write_dev_env, app
+from sdd_coders.cli import app
+from sdd_coders.scaffold import write_dev_env
 
 runner = CliRunner()
 
 
 def test_write_dev_env_does_not_overwrite_existing(tmp_path: Path) -> None:
     (tmp_path / ".env").write_text("EXISTING=1", encoding="utf-8")
-    _write_dev_env(tmp_path)
+    write_dev_env(tmp_path)
     assert (tmp_path / ".env").read_text(encoding="utf-8") == "EXISTING=1"
 
 
@@ -62,6 +63,63 @@ def test_init_rejects_invalid_name(tmp_path: Path) -> None:
     result = runner.invoke(app, ["init", str(tmp_path / "dir"), "--name", "../evil"])
     assert result.exit_code == 1
     assert "Invalid project name" in result.stdout
+
+
+def test_init_applies_chosen_theme(tmp_path: Path) -> None:
+    dest = tmp_path / "themed-app"
+    result = runner.invoke(app, ["init", str(dest), "--theme", "violet"])
+    assert result.exit_code == 0, result.stdout
+    css = (dest / "frontend" / "app" / "globals.css").read_text(encoding="utf-8")
+    assert "262.1 83.3% 57.8%" in css  # violet primary token
+    assert not (dest / "frontend" / "app" / "globals.css.jinja").exists()
+
+
+def test_init_rejects_invalid_theme(tmp_path: Path) -> None:
+    result = runner.invoke(app, ["init", str(tmp_path / "dir"), "--theme", "chartreuse"])
+    assert result.exit_code == 1
+    assert "Invalid theme" in result.stdout
+
+
+def test_new_command_launches_wizard(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: dict[str, object] = {}
+
+    def fake_run_wizard(path: Path, name: str, **kwargs: object) -> None:
+        calls["path"] = path
+        calls["name"] = name
+        calls["kwargs"] = kwargs
+
+    monkeypatch.setattr("sdd_coders.wizard.app.run_wizard", fake_run_wizard)
+    result = runner.invoke(app, ["new", str(tmp_path / "demo-app")])
+    assert result.exit_code == 0, result.stdout
+    assert calls["name"] == "demo-app"
+
+
+def test_new_rejects_invalid_name(tmp_path: Path) -> None:
+    result = runner.invoke(app, ["new", str(tmp_path / "dir"), "--name", "../evil"])
+    assert result.exit_code == 1
+    assert "Invalid project name" in result.stdout
+
+
+def test_configure_launches_wizard_for_existing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project = tmp_path / "demo-app"
+    project.mkdir()
+    captured: dict[str, object] = {}
+
+    def fake_run_wizard(path: Path, name: str, **kwargs: object) -> None:
+        captured["existing"] = kwargs.get("existing")
+
+    monkeypatch.setattr("sdd_coders.wizard.app.run_wizard", fake_run_wizard)
+    result = runner.invoke(app, ["configure", str(project)])
+    assert result.exit_code == 0, result.stdout
+    assert captured["existing"] is True
+
+
+def test_configure_missing_directory(tmp_path: Path) -> None:
+    result = runner.invoke(app, ["configure", str(tmp_path / "nope")])
+    assert result.exit_code == 1
+    assert "No such project" in result.stdout
 
 
 def test_doctor_reports_ok_when_tools_present(monkeypatch: pytest.MonkeyPatch) -> None:

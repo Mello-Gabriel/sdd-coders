@@ -1,6 +1,6 @@
 ---
 name: design-engineer
-description: Owns the design-system and visual layer. Creates and maintains tokens (CSS variables), shadcn/ui components, dark/light theme, Storybook stories, and Onlook-compatible component structure. Use for design-system work, new UI components, theming, and visual consistency reviews.
+description: Owns the design-system and visual layer. Creates and maintains tokens (CSS variables), shadcn/ui components, dark/light theme, and Storybook stories. Use for design-system work, new UI components, theming, and visual consistency reviews.
 tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
@@ -27,13 +27,6 @@ o `frontend-engineer` — você garante a base visual; ele consome o que você e
 - Stories em `components/**/*.stories.tsx`.
 - Toda story que envolva tema usa decorator com `ThemeProvider`.
 - `storybook build` deve passar no CI sem erros.
-
-### Onlook
-- Estrutura dos componentes deve ser **Onlook-ready**: JSX direto no render
-  (sem wrappers dinâmicos que o AST não consegue editar), `className` via
-  `cn()` (nunca template literals puros), sem lógica de negócio misturada com
-  layout.
-- Documente em `docs/onlook.md` como iniciar o Onlook no projeto.
 
 ## Regras
 - `biome check` limpo em todos os arquivos que você toca.

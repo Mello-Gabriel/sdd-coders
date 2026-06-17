@@ -1,8 +1,23 @@
 # Guia de Setup — Novo Projeto
 
 Este guia cobre **tudo que precisa ser feito uma vez** ao criar um projeto novo
-a partir do `sdd-coders`: segredos, e-mail, Cloudflare, VPS, Coolify, domínio e
-Onlook. Execute na ordem — cada passo depende do anterior.
+a partir do `sdd-coders`: segredos, e-mail, Cloudflare, VPS, Coolify e domínio.
+Execute na ordem — cada passo depende do anterior.
+
+> ## ⚡ Caminho recomendado: o wizard
+>
+> A maior parte deste guia é **automatizada** por `uvx sdd-coders new <app>`. O
+> wizard abre uma janela nativa, coleta os segredos (gerando JWT/DB/Redis
+> sozinho, resolvendo Zone ID e UUIDs por API), faz o scaffold e **empurra os
+> segredos direto para GitHub/Coolify/Cloudflare** — eles nunca tocam o repo —
+> roda Terraform/Ansible com o *state* fora do repositório, e por fim abre o
+> Claude já na entrevista, com o ambiente higienizado. Você ainda precisa ter
+> contas/tokens nos provedores (passos 1–7 abaixo descrevem onde obtê-los), mas
+> não precisa colar nada em arquivo nem rodar `gh`/`terraform` na mão.
+>
+> Use `sdd-coders configure <app>` para reabrir o wizard e rotacionar segredos.
+> O restante deste guia é a **referência manual** (e o fallback headless via
+> `sdd-coders init`).
 
 ---
 
@@ -496,63 +511,6 @@ gunzip -c /caminho/do/backup.sql.gz | \
 
 ---
 
-## Passo 11 — Onlook: edição visual do frontend
-
-[Onlook](https://onlook.dev) é um editor visual open-source que **escreve de volta
-no código** (via AST) — você clica em um componente no canvas e o arquivo `.tsx` é
-atualizado. Funciona nativamente com Next.js + Tailwind.
-
-### 11.1 Instalar o Onlook
-
-Baixe o instalador em [onlook.dev](https://onlook.dev) (macOS/Windows/Linux) e instale.
-
-### 11.2 Conectar ao projeto
-
-1. Abra o Onlook → **Open Project**.
-2. Selecione a pasta `frontend/` do seu projeto gerado.
-3. Onlook detecta Next.js automaticamente e sobe o servidor de dev interno.
-
-### 11.3 Fluxo de trabalho
-
-```
-Onlook (canvas) ←──AST──→ frontend/components/*.tsx
-                               ↕ git
-                           Claude Code (lógica, testes, API)
-```
-
-- **Canvas → código**: clique em qualquer elemento, edite visual (posição, cor,
-  tipografia, espaçamento) — o arquivo `.tsx` é atualizado imediatamente.
-- **Código → canvas**: salve o arquivo no editor — o canvas reflete a mudança.
-- **Design tokens**: as variáveis CSS de `globals.css` (cores, radii, sombras) são
-  reconhecidas pelo Tailwind e aparecem no Onlook como opções de estilo.
-- **Dark mode**: o Onlook respeita a classe `dark` do `next-themes` — use o toggle
-  no canto superior para ver o tema escuro.
-
-### 11.4 O que editar no Onlook vs. no código
-
-| Onlook (canvas) | Claude Code / editor |
-|-----------------|----------------------|
-| Layout, espaçamento, cores | Lógica de negócio, hooks, estado |
-| Tipografia, tamanho, bordas | Integração com API |
-| Responsividade (breakpoints) | Validações, formulários |
-| Animações CSS | Testes (Vitest, Playwright) |
-| Composição visual de componentes | Novos componentes complexos |
-
-### 11.5 Manter no design-system
-
-- Sempre use as classes do Tailwind mapeadas para os tokens (`bg-background`,
-  `text-foreground`, `border-border`, etc.) — não use valores hardcoded.
-- Novos componentes visuais devem ter stories em `.stories.tsx` para o Storybook:
-  ```bash
-  cd frontend && npm run storybook
-  ```
-- Após edições visuais, rode os testes para garantir que nada quebrou:
-  ```bash
-  cd frontend && npm test
-  ```
-
----
-
 ## Checklist final
 
 - [ ] Domínio comprado e nameservers apontando para Cloudflare
@@ -575,7 +533,6 @@ Onlook (canvas) ←──AST──→ frontend/components/*.tsx
 - [ ] Tag `v0.1.0` criada → aprovação dada → deploy de prod passou
 - [ ] `GET /health` retorna `{"status":"ok","db":"ok","redis":"ok"}`
 - [ ] Login, verificação de e-mail e Turnstile funcionando em prod
-- [ ] Onlook conectado ao `frontend/` e canvas renderizando
 
 ---
 
@@ -595,10 +552,6 @@ Onlook (canvas) ←──AST──→ frontend/components/*.tsx
 **`terraform apply` falha no módulo Hostinger**  
 → O VPS já foi criado manualmente? Comente o módulo `hostinger` em `main.tf`
   e aplique apenas Cloudflare + Coolify.
-
-**Onlook não detecta o projeto**  
-→ Certifique-se de apontar para a pasta `frontend/` (não a raiz do repo).  
-→ O `package.json` precisa ter `"dev": "next dev"` como script.
 
 **`next build` falha com erro de tipo**  
 → Rode `npm run typecheck` localmente antes de fazer push.  

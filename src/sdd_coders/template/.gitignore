@@ -27,6 +27,18 @@ site/
 .env
 .env.*
 !.env.example
+.secrets/
+secrets*.env
+!infra/secrets.example.env
+
+# Infra state / secrets (never commit; the wizard keeps these outside the repo)
+*.tfvars
+!*.tfvars.example
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+infra/ansible/inventory/hosts.ini
 
 # OS
 .DS_Store

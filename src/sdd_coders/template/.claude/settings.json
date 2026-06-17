@@ -13,6 +13,12 @@
       "Read(./.env)",
       "Read(./.env.*)",
       "Read(./**/.env)",
+      "Read(./**/*.tfvars)",
+      "Read(./**/*.tfstate)",
+      "Read(./**/*.tfstate.*)",
+      "Read(./.secrets/**)",
+      "Read(./**/secrets*.env)",
+      "Read(./infra/ansible/inventory/**)",
       "Bash(rm -rf:*)"
     ]
   },
@@ -24,6 +30,15 @@
           {
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/pre-commit-gate.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|Read|Grep|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/secret-guard.sh\""
           }
         ]
       }

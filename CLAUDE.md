@@ -9,8 +9,14 @@
 ```
 sdd_coders/
 ├── src/sdd_coders/
-│   ├── cli.py                    # Typer CLI: init, add-feature, doctor
-│   ├── scaffold.py               # Copier + git init orchestration
+│   ├── cli.py                    # Typer CLI: new, init, configure, add-feature, doctor
+│   ├── scaffold.py               # Copier render + local-dev .env writer
+│   ├── wizard/                   # `sdd-coders new` GUI + provisioning pipeline
+│   │   ├── app.py                #   Tkinter window (excluded from coverage)
+│   │   ├── model.py              #   WizardConfig + sink routing
+│   │   ├── pipeline.py           #   scaffold→push secrets→IaC orchestration
+│   │   ├── secrets_store.py      #   OS keychain + env scrubbing
+│   │   └── providers/            #   gh, Coolify, Cloudflare, Resend, Terraform, Ansible
 │   └── template/                 # The generated repo template (Copier)
 │       ├── backend/              # FastAPI app (uv, ruff, mypy, pytest)
 │       ├── frontend/             # Next.js app (TypeScript strict, Biome, Vitest)
@@ -76,7 +82,7 @@ npx biome check .       # lint + format check
 ## Pending features (v2)
 
 - **F9** — Frontend: shadcn/ui dark mode, 4 standard screens, Turnstile widget, GA Consent Mode
-- **F10** — Toolkit: design-engineer + platform-engineer agents, `/sdd-design` skill, Onlook integration
+- **F10** — Toolkit: design-engineer + platform-engineer agents, `/sdd-design` skill
 - **F11** — Infra IaC: Terraform (Hostinger + Cloudflare) + Ansible + Coolify + GitHub Environments
 - **F12** — Retrospective: update constitution + specs with v2 lessons, `add-feature` stubs
 
@@ -129,3 +135,20 @@ token_url = provider.outbox[0].text.split()[-1]
 - **RLS + cross-session writes.** A write done in a request that then raises (e.g. 401) is rolled back. For durable side effects (strike counting, refresh-family revocation) open a dedicated committed session — and set the right RLS context, or the UPDATE matches zero rows.
 - **`NEXT_PUBLIC_*` are build-time.** They're inlined into the client bundle, so they must be Docker `--build-arg`s, not runtime env.
 - **Three signals.** Metrics→Prometheus, logs→Loki, traces→Tempo. Logs never go to Prometheus.
+
+## Lessons learned (wizard)
+
+- **Secret isolation is architectural, not behavioral.** `sdd-coders new` keeps prod secrets out of the AI's reach by *removing them from the AI's filesystem/env entirely* — pushed to GitHub/Coolify via API, Terraform/Ansible state under `~/.local/state/sdd-coders/<proj>/`, Claude launched with `scrub_env(os.environ)`. The deny-rules + `secret-guard.sh` hook are defense-in-depth, not the guarantee.
+- **GUI excluded from coverage, logic isn't.** Only `wizard/app.py` (Tkinter) is in `[tool.coverage.run] omit`; every provider/pipeline/routing line is tested to 100% with `httpx.MockTransport`, a `FakeRunner` for subprocess, and an in-memory `keyring` backend.
+- **`gh` secrets via stdin, never argv.** `subprocess` `input=value` keeps secrets out of the process table; tests assert the value is absent from `call.args`.
+- **`dataclasses.replace(self, **dict)` fails mypy strict** (can't match `**dict[str,str]` to mixed-type fields) — pass explicit keyword args instead.
+- **tkinter is present under uv.** uv's python-build-standalone bundles tk, so `import tkinter` works in CI; still import the GUI lazily inside the CLI command so headless `import sdd_coders.cli` never needs it.
+
+## Lessons learned (live monitoring of a generated project)
+
+Running `sdd-coders new` for real and exercising the *generated* app (which the engine CI never does) surfaced bugs that 100% coverage hid:
+
+- **Scaffold must `git init` + commit.** `gh repo create --source=. --push` aborts with "current directory is not a git repository" unless the scaffolded repo is already initialized and committed. The wizard pipeline now does `git init -b main` + initial commit after scaffolding (the dev `.env` is gitignored, so it stays out of the commit).
+- **`uvx --from <local>` caches the build.** Edits to the template/wizard are masked until you pass `--reinstall` (or use `uv run` from the repo, which is editable). Iterate with `uv run sdd-coders ...`.
+- **`expire_on_commit=False` + cross-session read = stale test.** `test_delete_me` re-read the user via `owner_session.get()` after the endpoint committed the anonymisation in a *different* session; with `expire_on_commit=False` the identity map returned the pre-delete copy and the test failed even though `DELETE /me` was correct. Fix: `get(..., populate_existing=True)` (or `refresh`) to force a reload. The endpoint itself was fine — only the assertion read stale state.
+- **The template's backend suite (143 tests) really must be run on a generated project.** It caught the above; the engine CI does not run it. Bring up `infra/docker-compose.yml` `db`, run migrations on a virgin DB (`upgrade → downgrade → upgrade`), then `uv run pytest` in `backend/`.

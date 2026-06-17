@@ -9,10 +9,19 @@ and only the **product** is yours to define. From there, a team of specialized
 Claude Code agents builds the app from your specs.
 
 ```bash
+uvx sdd-coders new my-app   # wizard: collect secrets, provision, launch Claude
+# — or the headless path —
 uvx sdd-coders init my-app
 cd my-app
 # open in Claude Code and run /sdd-interview
 ```
+
+> **The wizard (`new`) keeps production secrets away from every AI.** It collects
+> your tokens in a native window, pushes them straight to GitHub / Coolify /
+> Cloudflare (running Terraform/Ansible with state kept *outside* the repo), then
+> launches Claude Code with a scrubbed environment. By construction the repo the AI
+> works in holds only throwaway local-dev values — reinforced by deny-rules and a
+> secret-guard hook in every generated repo.
 
 ## Why
 
@@ -81,3 +90,5 @@ See [`docs/how-it-works.md`](docs/how-it-works.md) and
 ## License
 
 MIT
+
+

@@ -8,7 +8,6 @@ and wires up the spec-driven, multi-agent workflow.
 from __future__ import annotations
 
 import re
-import secrets
 import shutil
 import textwrap
 from pathlib import Path
@@ -17,7 +16,8 @@ from typing import Annotated
 import typer
 
 from sdd_coders import __version__
-from sdd_coders.scaffold import scaffold_project
+from sdd_coders.scaffold import scaffold_project, write_dev_env
+from sdd_coders.wizard.themes import DEFAULT_THEME, THEME_KEYS, is_valid_theme
 
 app = typer.Typer(
     name="sdd-coders",
@@ -45,34 +45,6 @@ def _validate_slug(value: str, kind: str) -> str:
     return value
 
 
-def _write_dev_env(path: Path) -> None:
-    """Write a working local-dev .env with a freshly generated JWT secret."""
-    env_path = path / ".env"
-    if env_path.exists():
-        return
-    jwt_secret = secrets.token_hex(32)
-    env_path.write_text(
-        textwrap.dedent(f"""\
-            # Local development defaults (matches infra/docker-compose.yml).
-            # Production secrets live in Coolify / GitHub Secrets — never here.
-            APP_ENVIRONMENT=development
-            POSTGRES_USER=postgres
-            POSTGRES_PASSWORD=postgres
-            POSTGRES_DB=app
-            APP_DATABASE_URL=postgresql+asyncpg://app_user:app_pass@localhost:55432/app
-            ALEMBIC_DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:55432/app
-            REDIS_PASSWORD=redis
-            APP_REDIS_URL=redis://:redis@localhost:6379/0
-            APP_JWT_SECRET={jwt_secret}
-            APP_EMAIL_PROVIDER=memory
-            APP_TURNSTILE_ENABLED=false
-            APP_FRONTEND_URL=http://localhost:3000
-            NEXT_PUBLIC_API_URL=http://localhost:8000
-        """),
-        encoding="utf-8",
-    )
-
-
 @app.callback()
 def _root() -> None:
     """Spec-Driven Development base model for production-grade fullstack apps."""
@@ -91,11 +63,17 @@ def init(
     name: Annotated[
         str | None, typer.Option("--name", help="Project name (default: directory name)")
     ] = None,
+    theme: Annotated[
+        str, typer.Option("--theme", help="UI color theme (blue, neutral, violet, emerald, rose)")
+    ] = DEFAULT_THEME,
 ) -> None:
     """Scaffold a new project from the template."""
     project_name = _validate_slug(name or path.name, "project name")
-    scaffold_project(path, project_name)
-    _write_dev_env(path)
+    if not is_valid_theme(theme):
+        typer.echo(f"Invalid theme '{theme}': choose one of {', '.join(THEME_KEYS)}.")
+        raise typer.Exit(code=1)
+    scaffold_project(path, project_name, theme)
+    write_dev_env(path)
     typer.echo(f"Created project '{project_name}' in {path}")
     typer.echo("Next steps:")
     typer.echo("  1. cd into it and `docker compose -f infra/docker-compose.yml up -d db`")
@@ -103,6 +81,39 @@ def init(
         "  2. create the first admin: `uv run python -m app.scripts.create_admin <email> <pw>`"
     )
     typer.echo("  3. open it in Claude Code and run /sdd-interview")
+
+
+@app.command()
+def new(
+    path: Annotated[Path, typer.Argument(help="Directory for the new project")],
+    name: Annotated[
+        str | None, typer.Option("--name", help="Project name (default: directory name)")
+    ] = None,
+) -> None:
+    """Open the wizard: scaffold, push prod secrets to their remote homes, launch Claude.
+
+    Unlike ``init``, the wizard collects production secrets and pushes them straight to
+    GitHub/Coolify/Cloudflare — they never touch the repo — then launches Claude Code
+    with a scrubbed environment so no AI can read them.
+    """
+    project_name = _validate_slug(name or path.name, "project name")
+    from sdd_coders.wizard.app import run_wizard  # noqa: PLC0415 (lazy: skip tkinter import)
+
+    run_wizard(path, project_name)
+
+
+@app.command()
+def configure(
+    path: Annotated[Path, typer.Argument(help="Existing project directory")],
+) -> None:
+    """Reopen the wizard for an existing project to rotate or update its secrets."""
+    if not path.is_dir():
+        typer.echo(f"No such project directory: {path}")
+        raise typer.Exit(code=1)
+    project_name = _validate_slug(path.name, "project name")
+    from sdd_coders.wizard.app import run_wizard  # noqa: PLC0415 (lazy: skip tkinter import)
+
+    run_wizard(path, project_name, existing=True)
 
 
 @app.command()

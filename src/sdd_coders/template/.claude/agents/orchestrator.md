@@ -20,7 +20,7 @@ Leia `specs/constitution.md`, `specs/architecture/*` e a spec funcional alvo em
    - schema/migrations/RLS → `database-engineer`
    - API/regras/serviços → `backend-engineer`
    - UI/telas/consentimento → `frontend-engineer`
-   - design-system/tokens/Storybook/Onlook → `design-engineer`
+   - design-system/tokens/Storybook → `design-engineer`
    - testes (unit/integração/E2E) → `test-engineer`
    - hardening/OWASP/RLS review → `security-auditor`
    - Docker/CI/observabilidade → `devops-engineer`

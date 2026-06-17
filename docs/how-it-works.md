@@ -10,13 +10,44 @@ the way `uv init` scaffolds a Python project. It is built on **Copier**: only
 and build artifacts (`.venv`, `node_modules`) are excluded from the render.
 
 ```bash
-uvx sdd-coders init my-app          # scaffold (+ generates a local-dev .env)
+uvx sdd-coders new my-app           # wizard: scaffold + provision + launch Claude
+uvx sdd-coders init my-app          # scaffold only (+ generates a local-dev .env)
+sdd-coders configure my-app         # reopen the wizard to rotate/update secrets
 sdd-coders add-feature billing      # EARS spec + code stubs (router, page, test)
 sdd-coders doctor                   # check the toolchain
 ```
 
 `init` also writes a `.copier-answers.yml`, so a generated project can later run
 `copier update` to pull in fixes from a newer template version.
+
+### The wizard and the secret boundary
+
+`new` opens a native (Tkinter) window — no browser, so no browser-AI surface ever
+sees the form. The guarantee that **no AI can read production secrets is
+architectural**, not a matter of model behavior:
+
+- The wizard is a *privileged* process that holds secrets in memory and the OS
+  keychain, and pushes them straight to their remote homes — GitHub
+  secrets/variables (over stdin, never argv), Coolify env (API), Terraform
+  (`TF_VAR_*`), Ansible (a transient inventory). Terraform **state** and the
+  inventory live under `~/.local/state/sdd-coders/<project>/`, never in the repo.
+- Claude Code is launched as an *unprivileged* child: its working dir (the repo)
+  holds only throwaway local-dev values, and its environment is **scrubbed** of
+  every secret-shaped variable before launch.
+- Every generated repo ships defense-in-depth: `.claude/settings.json` deny-rules
+  plus a `secret-guard` hook that block the agent from reading `.env`/`*.tfvars`/
+  state/inventory or dumping the environment.
+
+This works because the template needs **zero** production secrets for local dev
+(memory email provider, in-memory rate limiting, Turnstile off, ephemeral JWT).
+
+### Picking a look
+
+At creation you choose a **UI theme** — a curated shadcn/Tailwind primary palette
+(`blue`, `neutral`, `violet`, `emerald`, `rose`). It only swaps the design tokens in
+`globals.css` (same screens, different accent), so it costs nothing against the
+frontend's 100% test gate. The wizard shows colour swatches; headless it's
+`sdd-coders init --theme violet`.
 
 ## 2. The specs (`template/specs/`)
 

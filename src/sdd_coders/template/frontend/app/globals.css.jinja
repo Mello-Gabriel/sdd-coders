@@ -1,3 +1,11 @@
+{%- set _themes = {
+  "blue":    {"lp": "221.2 83.2% 53.3%", "lpf": "210 40% 98%",      "dp": "217.2 91.2% 59.8%", "dpf": "222.2 47.4% 11.2%"},
+  "neutral": {"lp": "240 5.9% 10%",       "lpf": "0 0% 98%",         "dp": "0 0% 98%",          "dpf": "240 5.9% 10%"},
+  "violet":  {"lp": "262.1 83.3% 57.8%",  "lpf": "210 20% 98%",      "dp": "263.4 70% 50.4%",   "dpf": "210 20% 98%"},
+  "emerald": {"lp": "142.1 76.2% 36.3%",  "lpf": "355.7 100% 97.3%", "dp": "142.1 70.6% 45.3%", "dpf": "144.9 80.4% 10%"},
+  "rose":    {"lp": "346.8 77.2% 49.8%",  "lpf": "355.7 100% 97.3%", "dp": "346.8 77.2% 49.8%", "dpf": "355.7 100% 97.3%"}
+} -%}
+{%- set _t = _themes[ui_theme] -%}
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,15 +16,15 @@
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
+    --primary: {{ _t.lp }};
+    --primary-foreground: {{ _t.lpf }};
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    --ring: {{ _t.lp }};
     --radius: 0.5rem;
   }
 
@@ -25,15 +33,15 @@
     --foreground: 210 40% 98%;
     --card: 222.2 84% 4.9%;
     --card-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: {{ _t.dp }};
+    --primary-foreground: {{ _t.dpf }};
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --ring: {{ _t.dp }};
   }
 
   * {
