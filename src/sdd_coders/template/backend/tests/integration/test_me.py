@@ -82,7 +82,10 @@ async def test_delete_me_anonymises_and_revokes(
     response = await client.delete("/me")
     assert response.status_code == 204
 
-    user = await owner_session.get(User, uuid.UUID(user_id))
+    # populate_existing: the user was loaded (and committed) by _auth in this same
+    # session, which uses expire_on_commit=False — without forcing a reload, the
+    # identity map would return the stale pre-delete copy and hide the anonymisation.
+    user = await owner_session.get(User, uuid.UUID(user_id), populate_existing=True)
     assert user is not None
     assert user.is_active is False
     assert user.email == f"deleted-{user_id}@anon.invalid"
