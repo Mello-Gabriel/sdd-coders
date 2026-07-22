@@ -21,9 +21,7 @@ def render_inventory(ansible_vars: dict[str, str]) -> str:
     user = ansible_vars.get("ansible_user", "root")
     key = ansible_vars.get("ansible_ssh_private_key_file", "~/.ssh/id_ed25519")
     return (
-        "[vps]\n"
-        f"prod ansible_host={host} ansible_user={user} "
-        f"ansible_ssh_private_key_file={key}\n"
+        f"[vps]\nprod ansible_host={host} ansible_user={user} ansible_ssh_private_key_file={key}\n"
     )
 
 
@@ -31,9 +29,7 @@ class Ansible:
     def __init__(self, *, runner: Runner = default_runner) -> None:
         self._run = runner
 
-    def run_playbook(
-        self, playbook: Path, inventory: Path, *, cwd: Path | None = None
-    ) -> None:
+    def run_playbook(self, playbook: Path, inventory: Path, *, cwd: Path | None = None) -> None:
         result = self._run(
             ["ansible-playbook", "-i", str(inventory), str(playbook)],
             cwd=str(cwd) if cwd else None,

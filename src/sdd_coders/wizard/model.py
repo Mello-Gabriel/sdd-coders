@@ -29,6 +29,7 @@ SECRET_FIELDS: frozenset[str] = frozenset(
     }
 )
 
+
 @dataclass
 class WizardConfig:
     """Everything the wizard collects for one project."""

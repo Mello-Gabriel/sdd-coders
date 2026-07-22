@@ -23,7 +23,10 @@ def test_build_child_env_defaults_to_os_environ(monkeypatch: pytest.MonkeyPatch)
     assert "SOME_SECRET" not in env
 
 
-def test_launch_claude_runs_with_scrubbed_env(tmp_path: Path) -> None:
+def test_launch_claude_runs_with_scrubbed_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("sdd_coders.wizard.launch.shutil.which", lambda _tool: "/usr/bin/claude")
     runner = FakeRunner(returncode=0)
     code = launch_claude(
         tmp_path,
@@ -37,7 +40,16 @@ def test_launch_claude_runs_with_scrubbed_env(tmp_path: Path) -> None:
     assert "CLOUDFLARE_API_TOKEN" not in (call.env or {})
 
 
-def test_launch_claude_without_interview(tmp_path: Path) -> None:
+def test_launch_claude_without_interview(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sdd_coders.wizard.launch.shutil.which", lambda _tool: "/usr/bin/claude")
     runner = FakeRunner()
     launch_claude(tmp_path, interview=False, base_env={"PATH": "/bin"}, runner=runner)
     assert runner.calls[0].args == ["claude"]
+
+
+def test_launch_claude_missing_executable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sdd_coders.wizard.launch.shutil.which", lambda _tool: None)
+    runner = FakeRunner()
+    with pytest.raises(SystemExit, match="Claude Code is not installed"):
+        launch_claude(tmp_path, runner=runner)
+    assert runner.calls == []

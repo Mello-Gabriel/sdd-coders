@@ -95,12 +95,18 @@ def test_cloudflare_default_client_constructs() -> None:
 
 
 def test_coolify_verify() -> None:
-    assert CoolifyClient("https://c", "t", client=mock_client(
-        lambda _r: httpx.Response(200, json={"version": "4"})
-    )).verify() is True
-    assert CoolifyClient("https://c", "t", client=mock_client(
-        lambda _r: httpx.Response(401)
-    )).verify() is False
+    assert (
+        CoolifyClient(
+            "https://c",
+            "t",
+            client=mock_client(lambda _r: httpx.Response(200, json={"version": "4"})),
+        ).verify()
+        is True
+    )
+    assert (
+        CoolifyClient("https://c", "t", client=mock_client(lambda _r: httpx.Response(401))).verify()
+        is False
+    )
 
 
 def test_coolify_resolve_uuids() -> None:
@@ -108,12 +114,10 @@ def test_coolify_resolve_uuids() -> None:
         {"uuid": "u1", "name": "app-backend-prod"},
         {"uuid": "u2", "name": "app-frontend-prod"},
     ]
-    client = CoolifyClient("https://c", "t", client=mock_client(
-        lambda _r: httpx.Response(200, json=apps)
-    ))
-    resolved = client.resolve_uuids(
-        {"prod_backend": "app-backend-prod", "missing": "nope"}
+    client = CoolifyClient(
+        "https://c", "t", client=mock_client(lambda _r: httpx.Response(200, json=apps))
     )
+    resolved = client.resolve_uuids({"prod_backend": "app-backend-prod", "missing": "nope"})
     assert resolved == {"prod_backend": "u1"}
 
 
@@ -131,9 +135,7 @@ def test_coolify_set_env() -> None:
 
 
 def test_coolify_set_env_raises_on_error() -> None:
-    client = CoolifyClient("https://c", "t", client=mock_client(
-        lambda _r: httpx.Response(500)
-    ))
+    client = CoolifyClient("https://c", "t", client=mock_client(lambda _r: httpx.Response(500)))
     with pytest.raises(httpx.HTTPStatusError):
         client.set_env("uX", {"K": "V"})
 
@@ -205,9 +207,7 @@ def test_github_set_variable_with_env() -> None:
 def test_github_ensure_environment() -> None:
     runner = FakeRunner()
     GitHubCLI(runner=runner).ensure_environment("me/app", "prod")
-    assert runner.calls[0].args == [
-        "gh", "api", "-X", "PUT", "repos/me/app/environments/prod"
-    ]
+    assert runner.calls[0].args == ["gh", "api", "-X", "PUT", "repos/me/app/environments/prod"]
 
 
 def test_github_error_on_failure() -> None:

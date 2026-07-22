@@ -29,9 +29,7 @@ class CloudflareClient:
 
     def zone_id(self, domain: str) -> str:
         """Resolve the Zone ID for ``domain`` (kills the manual dashboard lookup)."""
-        resp = self._client.get(
-            f"{_BASE}/zones", params={"name": domain}, headers=self._headers()
-        )
+        resp = self._client.get(f"{_BASE}/zones", params={"name": domain}, headers=self._headers())
         resp.raise_for_status()
         result = resp.json().get("result", [])
         if not result:

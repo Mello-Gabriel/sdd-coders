@@ -8,6 +8,7 @@ environment, so it cannot read a production secret even from its own ``os.enviro
 from __future__ import annotations
 
 import os
+import shutil
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -29,6 +30,12 @@ def launch_claude(
     runner: Runner = default_runner,
 ) -> int:
     """Start ``claude`` in ``repo`` with a scrubbed env; returns its exit code."""
+    if shutil.which("claude") is None:
+        raise SystemExit(
+            "Claude Code is not installed ('claude' not found in PATH). Install it "
+            "from https://claude.com/claude-code, or run the /sdd-interview "
+            "interview manually inside the generated project."
+        )
     args = ["claude"]
     if interview:
         args.append("/sdd-interview")
