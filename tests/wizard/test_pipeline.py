@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 import httpx
 import pytest
 
-from sdd_coders.scaffold import write_dev_env
+from sdd_coders.scaffold import scaffold_project, write_dev_env
 from sdd_coders.wizard import workspace
 from sdd_coders.wizard.model import WizardConfig
 from sdd_coders.wizard.pipeline import (
@@ -273,3 +274,99 @@ def test_secret_values_lists_only_set_secrets() -> None:
     assert "c" in values
     assert "j" in values
     assert "" not in values
+
+
+def _existing_project_pipeline(
+    cfg: WizardConfig,
+    repo: Path,
+    *,
+    scaffold: Callable[[Path, str, str], None],
+    git_runner: FakeRunner,
+    coolify_calls: list[str],
+) -> Pipeline:
+    """A pipeline wired the way `sdd-coders configure` wires it."""
+
+    def coolify_handler(request: httpx.Request) -> httpx.Response:
+        coolify_calls.append(str(request.url))
+        return httpx.Response(200, json={})
+
+    return Pipeline(
+        cfg=cfg,
+        repo=repo,
+        github=GitHubCLI(cwd=repo, runner=FakeRunner()),
+        git=Git(cwd=repo, runner=git_runner),
+        coolify=CoolifyClient(
+            cfg.coolify_url, cfg.coolify_token, client=mock_client(coolify_handler)
+        ),
+        scaffold=scaffold,
+        write_env=write_dev_env,
+    )
+
+
+def test_run_all_skips_scaffolding_for_an_existing_project(isolated_state: Path) -> None:
+    """`configure` must not re-render the template over a repo already worked in."""
+    repo = isolated_state / "my-app"
+    _fake_scaffold(repo, "my-app")  # the project already exists
+    cfg = _full_config()
+    scaffolded: list[Path] = []
+    git_runner = FakeRunner()
+    coolify_calls: list[str] = []
+    pipeline = _existing_project_pipeline(
+        cfg,
+        repo,
+        scaffold=lambda dest, name, ui_theme: scaffolded.append(dest),
+        git_runner=git_runner,
+        coolify_calls=coolify_calls,
+    )
+
+    pipeline.run_all(scaffold=False)
+
+    assert scaffolded == []  # the template was not re-rendered
+    assert git_runner.calls == []  # the user's WIP was not swept into a commit
+    assert len(coolify_calls) == 2  # what `configure` exists for still happened
+
+
+def test_run_all_still_scaffolds_by_default(isolated_state: Path) -> None:
+    repo = isolated_state / "fresh-app"
+    cfg = _full_config()
+    scaffolded: list[Path] = []
+
+    def recording_scaffold(dest: Path, name: str, ui_theme: str) -> None:
+        _fake_scaffold(dest, name, ui_theme)
+        scaffolded.append(dest)
+
+    pipeline = _existing_project_pipeline(
+        cfg,
+        repo,
+        scaffold=recording_scaffold,
+        git_runner=FakeRunner(),
+        coolify_calls=[],
+    )
+
+    pipeline.run_all()
+
+    assert scaffolded == [repo]
+
+
+def test_configure_flow_leaves_local_work_untouched(isolated_state: Path) -> None:
+    """Regression: the real Copier scaffold refuses to overwrite, so it must be skipped.
+
+    The other tests inject a fake scaffold that happily re-runs — which is exactly
+    what hid this bug — so this one uses the real renderer the GUI actually calls.
+    """
+    repo = isolated_state / "real-app"
+    scaffold_project(repo, "real-app", "blue")
+    edited = repo / "backend" / "app" / "main.py"
+    edited.write_text(edited.read_text(encoding="utf-8") + "\n# LOCAL WORK\n", encoding="utf-8")
+
+    pipeline = _existing_project_pipeline(
+        _full_config(),
+        repo,
+        scaffold=scaffold_project,
+        git_runner=FakeRunner(),
+        coolify_calls=[],
+    )
+
+    pipeline.run_all(scaffold=False)
+
+    assert "# LOCAL WORK" in edited.read_text(encoding="utf-8")

@@ -348,7 +348,8 @@ class WizardApp:
             on_progress=self._progress,
         )
         try:
-            pipeline.run_all()
+            # An existing project is never re-scaffolded — see Pipeline.run_all.
+            pipeline.run_all(scaffold=not self.existing)
         except Exception as exc:  # surface any provider error to the user
             messagebox.showerror("Falha no provisionamento", str(exc))
             return

@@ -145,6 +145,7 @@ token_url = provider.outbox[0].text.split()[-1]
 - **`gh` secrets via stdin, never argv.** `subprocess` `input=value` keeps secrets out of the process table; tests assert the value is absent from `call.args`.
 - **`dataclasses.replace(self, **dict)` fails mypy strict** (can't match `**dict[str,str]` to mixed-type fields) — pass explicit keyword args instead.
 - **tkinter is present under uv.** uv's python-build-standalone bundles tk, so `import tkinter` works in CI; still import the GUI lazily inside the CLI command so headless `import sdd_coders.cli` never needs it.
+- **An injectable dependency is only as honest as its fake.** `Pipeline.scaffold` is injectable and every test passed `_fake_scaffold`, which happily re-runs over an existing directory. The real `scaffold_project` (Copier) raises `InteractiveSessionError` instead — so `configure` was broken on every existing project while the suite stayed green at 100%. When a fake is *more permissive* than the real collaborator, it stops being a test double and becomes a blind spot: pin the critical path with at least one test that drives the real thing.
 
 ## Lessons learned (live monitoring of a generated project)
 
