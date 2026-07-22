@@ -16,7 +16,11 @@ class Settings(BaseSettings):
     """Runtime configuration. Secrets must come from the environment."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        # The canonical .env lives at the repository root, but backend commands
+        # (alembic, app.scripts.*, pytest) are run from ``backend/``. Listing
+        # both keeps a single .env working from either working directory; later
+        # entries win, so a backend-local .env still overrides the root one.
+        env_file=("../.env", ".env"),
         env_prefix="APP_",
         extra="ignore",
     )

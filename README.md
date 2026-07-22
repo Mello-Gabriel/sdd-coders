@@ -9,12 +9,22 @@ and only the **product** is yours to define. From there, a team of specialized
 Claude Code agents builds the app from your specs.
 
 ```bash
-uvx sdd-coders new my-app   # wizard: collect secrets, provision, launch Claude
+# Install once (git-only distribution — this package is not on PyPI)
+uv tool install --from git+https://github.com/Mello-Gabriel/sdd-coders sdd-coders
+
+sdd-coders new my-app       # wizard: collect secrets, provision, launch Claude
 # — or the headless path —
-uvx sdd-coders init my-app
+sdd-coders init my-app
 cd my-app
-# open in Claude Code and run /sdd-interview
+make init                   # dependencies, database, migrations
+make admin email=you@example.com password='AStrongOne123'
+make start                  # backend on :8000, frontend on :3000
+make interview              # opens Claude Code on /sdd-interview
 ```
+
+Every generated project ships a self-documenting `Makefile` — run `make` to list
+all targets (`make check` runs the same gate as CI, `make db-reset` rebuilds the
+database, `make specify`/`plan`/`tasks`/`implement` drive the SDD pipeline).
 
 Already have a project? Bring the workflow to it instead of starting over:
 

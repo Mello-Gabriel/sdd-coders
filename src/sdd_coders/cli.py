@@ -88,11 +88,12 @@ def init(
     write_dev_env(path)
     typer.echo(f"Created project '{project_name}' in {path}")
     typer.echo("Next steps:")
-    typer.echo("  1. cd into it and `docker compose -f infra/docker-compose.yml up -d db`")
-    typer.echo(
-        "  2. create the first admin: `uv run python -m app.scripts.create_admin <email> <pw>`"
-    )
-    typer.echo("  3. open it in Claude Code and run /sdd-interview")
+    typer.echo(f"  1. cd {path}")
+    typer.echo("  2. make init            # deps, database and migrations")
+    typer.echo("  3. make admin email=you@example.com password='AStrongOne123'")
+    typer.echo("  4. make start           # backend on :8000, frontend on :3000")
+    typer.echo("  5. make interview       # opens Claude Code on /sdd-interview")
+    typer.echo("Run `make` to list every available command.")
 
 
 @app.command()

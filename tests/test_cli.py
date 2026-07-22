@@ -48,10 +48,22 @@ def test_help_lists_commands() -> None:
     assert "init" in result.stdout
 
 
-def test_init_scaffolds_project(tmp_path: Path) -> None:
-    dest = tmp_path / "demo-app"
+@pytest.fixture(scope="module")
+def scaffolded(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """One default `init` shared by the tests that only read the result.
+
+    A Copier render takes tens of seconds; scaffolding the same default project
+    once per assertion added minutes to every run. These tests never mutate the
+    tree, so one render serves them all.
+    """
+    dest = tmp_path_factory.mktemp("scaffold") / "demo-app"
     result = runner.invoke(app, ["init", str(dest)])
     assert result.exit_code == 0, result.stdout
+    return dest
+
+
+def test_init_scaffolds_project(scaffolded: Path) -> None:
+    dest = scaffolded
     assert (dest / "backend" / "pyproject.toml").is_file()
     assert (dest / "frontend" / "package.json").is_file()
     assert (dest / "specs" / "constitution.md").is_file()
@@ -66,6 +78,40 @@ def test_init_scaffolds_project(tmp_path: Path) -> None:
     assert "APP_JWT_SECRET=" in env
     assert "APP_JWT_SECRET=\n" not in env  # non-empty
     assert (dest / ".copier-answers.yml").is_file()
+
+
+def test_init_ships_a_makefile_named_after_the_project(scaffolded: Path) -> None:
+    dest = scaffolded
+
+    makefile = (dest / "Makefile").read_text(encoding="utf-8")
+    assert "# Makefile — demo-app" in makefile
+    # Compose is always given the repo-root .env: it otherwise resolves ${VARS}
+    # against infra/ (the compose file's own directory) and silently uses blanks.
+    assert "docker compose --env-file .env -f infra/docker-compose.yml" in makefile
+    for target in ("init:", "start:", "interview:", "check:", "admin:", "migrate:"):
+        assert target in makefile, target
+
+
+def test_init_gives_each_project_its_own_compose_project_name(scaffolded: Path) -> None:
+    """Without this, every generated project is called "infra" and they collide."""
+    dest = scaffolded
+
+    compose = (dest / "infra" / "docker-compose.yml").read_text(encoding="utf-8")
+    assert "name: demo-app" in compose
+    assert not (dest / "infra" / "docker-compose.yml.jinja").exists()
+    # Host ports are overridable so two projects can run side by side.
+    assert "${POSTGRES_PORT:-55432}" in compose
+
+
+def test_init_backend_reads_the_repo_root_dotenv(scaffolded: Path) -> None:
+    """Backend commands run from backend/, but the .env lives at the root."""
+    dest = scaffolded
+
+    config = (dest / "backend" / "app" / "core" / "config.py").read_text(encoding="utf-8")
+    assert 'env_file=("../.env", ".env")' in config
+    # Alembic needs the owner URL, which is not an APP_-prefixed setting.
+    env_py = (dest / "backend" / "alembic" / "env.py").read_text(encoding="utf-8")
+    assert "_owner_url_from_dotenv" in env_py
 
 
 def test_init_with_explicit_name(tmp_path: Path) -> None:

@@ -20,6 +20,7 @@ sdd_coders/
 │   │   ├── secrets_store.py      #   OS keychain + env scrubbing
 │   │   └── providers/            #   gh, Coolify, Cloudflare, Resend, Terraform, Ansible
 │   └── template/                 # The generated repo template (Copier)
+│       ├── Makefile.jinja        # Self-documenting task runner for generated repos
 │       ├── backend/              # FastAPI app (uv, ruff, mypy, pytest)
 │       ├── frontend/             # Next.js app (TypeScript strict, Biome, Vitest)
 │       ├── infra/                # Docker, docker-compose
@@ -145,6 +146,8 @@ token_url = provider.outbox[0].text.split()[-1]
 - **`gh` secrets via stdin, never argv.** `subprocess` `input=value` keeps secrets out of the process table; tests assert the value is absent from `call.args`.
 - **`dataclasses.replace(self, **dict)` fails mypy strict** (can't match `**dict[str,str]` to mixed-type fields) — pass explicit keyword args instead.
 - **tkinter is present under uv.** uv's python-build-standalone bundles tk, so `import tkinter` works in CI; still import the GUI lazily inside the CLI command so headless `import sdd_coders.cli` never needs it.
+- **The engine's tests never run the generated project.** `init` printed a "next steps" list that could not work: it omitted `cd backend` (so `python -m app.scripts.create_admin` hit ModuleNotFoundError), omitted `alembic upgrade head`, and omitted `--env-file .env` (Compose resolves `${VARS}` against the compose file's own directory, `infra/`, so the root `.env` was ignored). Compounding it, `config.py` used `env_file=".env"` — relative to the cwd — so backend commands run from `backend/` silently fell back to the default port 5432 while Docker publishes 55432. Scaffolding a throwaway project and actually running the documented commands is the only thing that catches this class of bug.
+- **Compose derives the project name from the compose file's directory.** Every generated project was therefore called `infra`, so two of them shared one set of containers and `up` in one would migrate the other's database. Fixed with an explicit `name:` plus overridable host ports.
 - **An injectable dependency is only as honest as its fake.** `Pipeline.scaffold` is injectable and every test passed `_fake_scaffold`, which happily re-runs over an existing directory. The real `scaffold_project` (Copier) raises `InteractiveSessionError` instead — so `configure` was broken on every existing project while the suite stayed green at 100%. When a fake is *more permissive* than the real collaborator, it stops being a test double and becomes a blind spot: pin the critical path with at least one test that drives the real thing.
 
 ## Lessons learned (live monitoring of a generated project)
