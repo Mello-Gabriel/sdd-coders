@@ -9,8 +9,10 @@
 ```
 sdd_coders/
 ├── src/sdd_coders/
-│   ├── cli.py                    # Typer CLI: new, init, configure, add-feature, doctor
+│   ├── cli.py                    # Typer CLI: new, init, adopt, configure, add-feature, doctor
 │   ├── scaffold.py               # Copier render + local-dev .env writer
+│   ├── adopt.py                  # `sdd-coders adopt`: install the workflow into an existing repo
+│   ├── assets/adopt/             # Stack-agnostic specs/ skeleton used only by `adopt`
 │   ├── wizard/                   # `sdd-coders new` GUI + provisioning pipeline
 │   │   ├── app.py                #   Tkinter window (excluded from coverage)
 │   │   ├── model.py              #   WizardConfig + sink routing

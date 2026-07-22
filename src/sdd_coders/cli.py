@@ -16,6 +16,7 @@ from typing import Annotated
 import typer
 
 from sdd_coders import __version__
+from sdd_coders.adopt import adopt_project
 from sdd_coders.scaffold import scaffold_project, write_dev_env
 from sdd_coders.wizard.themes import DEFAULT_THEME, THEME_KEYS, is_valid_theme
 
@@ -111,6 +112,45 @@ def new(
     from sdd_coders.wizard.app import run_wizard  # noqa: PLC0415 (lazy: skip tkinter import)
 
     run_wizard(path, project_name)
+
+
+@app.command()
+def adopt(
+    path: Annotated[
+        Path, typer.Argument(help="Existing repository to adopt (default: current directory)")
+    ] = Path(),
+    force: Annotated[
+        bool, typer.Option("--force", help="Overwrite files that already exist")
+    ] = False,
+) -> None:
+    """Install the spec-driven workflow into an existing repository.
+
+    Copies the agents, the ``/sdd-*`` skills, the commit hooks and a
+    stack-agnostic ``specs/`` skeleton. Existing files are left untouched unless
+    ``--force``, so this is safe to run on a repo with work in progress.
+    """
+    if not path.is_dir():
+        typer.echo(f"No such directory: {path}")
+        raise typer.Exit(code=1)
+    if not (path / ".git").exists():
+        typer.echo(f"Warning: {path} is not a git repository — nothing will be version-controlled.")
+
+    report = adopt_project(path, force=force)
+    for relative in report.added:
+        typer.echo(f"  added       {relative}")
+    for relative in report.overwritten:
+        typer.echo(f"  overwritten {relative}")
+    for relative in report.skipped:
+        typer.echo(f"  skipped     {relative} (already exists)")
+
+    if not report.added and not report.overwritten:
+        typer.echo("Nothing to do — every file was already present (use --force to overwrite).")
+        return
+    typer.echo(f"Adopted {path}: {len(report.added) + len(report.overwritten)} file(s) written.")
+    typer.echo("Next steps:")
+    typer.echo("  1. open the repo in Claude Code and run /sdd-constitution")
+    typer.echo("     (it reads your stack and fills specs/constitution.md with you)")
+    typer.echo("  2. run /sdd-specify to write the spec for your next feature")
 
 
 @app.command()
