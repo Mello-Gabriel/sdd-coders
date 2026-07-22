@@ -306,6 +306,36 @@ Gere o JWT secret:
 python -c "import secrets; print(secrets.token_hex(32))"
 ```
 
+> `sdd-coders init` já grava um `.env` funcional para desenvolvimento local,
+> com um JWT secret novo — os valores acima só são necessários se você estiver
+> montando o `.env` do zero.
+
+### 8.1.1 Rodando localmente
+
+Use o `Makefile` da raiz; `make` sozinho lista todos os alvos.
+
+```bash
+make init      # instala dependências, sobe Postgres/Redis e aplica as migrations
+make admin email=voce@exemplo.com password='SuaSenhaForte123'
+make start     # backend em :8000 e frontend em :3000
+```
+
+Três detalhes que o Makefile resolve e que mordem quem roda os comandos na mão:
+
+- **O `.env` mora na raiz, mas os comandos do backend rodam em `backend/`.**
+  Por isso `app/core/config.py` procura `../.env` além de `.env`. Rodar
+  `uv run ...` de `backend/` sem isso cairia nos defaults (porta 5432 em vez de
+  55432) e falharia com *connection refused*.
+- **O `docker compose` precisa de `--env-file .env`.** Ele resolve `${VARS}`
+  contra o diretório do arquivo compose (`infra/`), então sem a flag ignora o
+  `.env` da raiz e substitui tudo por string vazia.
+- **As migrations rodam como o dono (`postgres`), não como `app_user`.** É o
+  `ALEMBIC_DATABASE_URL` que garante isso; `app_user` não tem permissão para
+  criar tabelas.
+
+Se as portas 55432/8000/3000 já estiverem ocupadas na sua máquina, defina
+`POSTGRES_PORT`, `BACKEND_PORT` ou `FRONTEND_PORT` no `.env`.
+
 ### 8.2 GitHub Secrets (para CI/CD)
 
 No repositório GitHub → **Settings** → **Secrets and variables** → **Actions** →

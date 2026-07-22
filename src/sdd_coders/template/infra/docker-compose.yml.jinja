@@ -1,3 +1,9 @@
+# Without an explicit name, Compose derives the project name from this file's
+# directory — "infra" — for every generated project alike. Two sdd-coders
+# projects would then share one set of containers, and `up` in one would attach
+# to (and migrate) the other's database.
+name: {{ project_name }}
+
 services:
   db:
     image: postgres:16-alpine
@@ -16,7 +22,7 @@ services:
     # Bind to loopback only: Docker publishes ports past the host firewall (UFW),
     # so "55432:5432" would expose Postgres to the internet on a VPS.
     ports:
-      - "127.0.0.1:55432:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-55432}:5432"
 
   redis:
     image: redis:7-alpine
@@ -50,7 +56,7 @@ services:
       redis:
         condition: service_healthy
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
 
   frontend:
     build:
@@ -63,7 +69,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
 
   # Opt-in daily pg_dump with retention. Enable with:
   #   docker compose --profile backup up -d backup

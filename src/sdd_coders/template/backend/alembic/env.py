@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 from logging.config import fileConfig
+from pathlib import Path
 
 from alembic import context
 from app.core.config import get_settings
@@ -19,9 +20,32 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+def _owner_url_from_dotenv() -> str | None:
+    """Read ALEMBIC_DATABASE_URL from the repo-root (or backend-local) .env.
+
+    Migrations create tables, RLS policies and grants, so they must connect as
+    the owner role — never as the least-privilege app role. That URL is not an
+    ``APP_``-prefixed setting, so ``Settings`` does not pick it up; without this
+    a developer running ``alembic`` from ``backend/`` would silently fall back
+    to the app role and fail on the first CREATE TABLE.
+    """
+    for candidate in (Path("../.env"), Path(".env")):
+        if not candidate.is_file():
+            continue
+        for line in candidate.read_text(encoding="utf-8").splitlines():
+            key, sep, value = line.partition("=")
+            if sep and key.strip() == "ALEMBIC_DATABASE_URL":
+                return value.strip().strip("\"'") or None
+    return None
+
+
 def _database_url() -> str:
     # Prefer an explicit owner URL for migrations; fall back to the app URL.
-    return os.environ.get("ALEMBIC_DATABASE_URL") or get_settings().database_url
+    return (
+        os.environ.get("ALEMBIC_DATABASE_URL")
+        or _owner_url_from_dotenv()
+        or get_settings().database_url
+    )
 
 
 def _run_migrations(connection: Connection) -> None:

@@ -9,13 +9,25 @@ the way `uv init` scaffolds a Python project. It is built on **Copier**: only
 `*.jinja` files are templated (so JSX `}}` and GitHub `${{ }}` survive verbatim),
 and build artifacts (`.venv`, `node_modules`) are excluded from the render.
 
+The package is **not on PyPI** — it is distributed from git, so install it once
+as a uv tool:
+
 ```bash
-uvx sdd-coders new my-app           # wizard: scaffold + provision + launch Claude
-uvx sdd-coders init my-app          # scaffold only (+ generates a local-dev .env)
+uv tool install --from git+https://github.com/Mello-Gabriel/sdd-coders sdd-coders
+uv tool install --force --from git+https://github.com/Mello-Gabriel/sdd-coders sdd-coders  # update
+```
+
+```bash
+sdd-coders new my-app               # wizard: scaffold + provision + launch Claude
+sdd-coders init my-app              # scaffold only (+ generates a local-dev .env)
+sdd-coders adopt                    # install the workflow into an existing repo
 sdd-coders configure my-app         # reopen the wizard to rotate/update secrets
 sdd-coders add-feature billing      # EARS spec + code stubs (router, page, test)
 sdd-coders doctor                   # check the toolchain
 ```
+
+To run it without installing, prefix with
+`uvx --from git+https://github.com/Mello-Gabriel/sdd-coders`.
 
 `init` also writes a `.copier-answers.yml`, so a generated project can later run
 `copier update` to pull in fixes from a newer template version.

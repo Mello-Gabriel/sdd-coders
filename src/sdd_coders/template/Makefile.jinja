@@ -1,0 +1,199 @@
+# Makefile — {{ project_name }}
+#
+# Atalhos para as tarefas do dia a dia. Rode `make` (ou `make help`) para ver
+# tudo. Todos os alvos assumem que você está na RAIZ do repositório.
+#
+# Convenções:
+#   - comandos do backend rodam em backend/ (é lá que o pyproject.toml vive);
+#   - o .env da raiz é a única fonte de configuração local;
+#   - o docker compose SEMPRE recebe --env-file .env, senão ele procura o .env
+#     dentro de infra/ (o diretório do arquivo compose) e ignora o da raiz.
+
+SHELL := /bin/bash
+.DEFAULT_GOAL := help
+
+COMPOSE := docker compose --env-file .env -f infra/docker-compose.yml
+BACKEND := cd backend && uv run
+FRONTEND := cd frontend && npm run
+
+.PHONY: help init install db db-stop db-reset migrate migration downgrade admin psql \
+        start backend frontend build up down restart logs ps \
+        check lint format typecheck test test-backend test-frontend e2e \
+        docs docs-serve api-client erd \
+        interview specify plan tasks implement sdd-verify sdd-docs \
+        clean clean-all
+
+help: ## Mostra esta ajuda
+	@awk 'BEGIN {FS = ":.*##"; printf "\n\033[1m{{ project_name }}\033[0m — alvos disponíveis\n"} \
+		/^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } \
+		/^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@printf "\nAlvos com argumento:\n"
+	@printf "  \033[36mmake admin\033[0m email=voce@ex.com password='SenhaForte123'\n"
+	@printf "  \033[36mmake migration\033[0m name='add tabela x'\n\n"
+
+##@ Primeiros passos
+
+init: ## Setup completo do zero: dependências, banco, migrations
+	@$(MAKE) install
+	@$(MAKE) db
+	@echo "==> Aguardando o banco aceitar conexões..."
+	@until $(COMPOSE) exec -T db pg_isready -U postgres >/dev/null 2>&1; do sleep 1; done
+	@$(MAKE) migrate
+	@echo ""
+	@echo "Pronto. Agora crie o primeiro admin:"
+	@echo "  make admin email=voce@exemplo.com password='SuaSenhaForte123'"
+	@echo "Depois suba a aplicação com: make start"
+
+install: ## Instala as dependências do backend e do frontend
+	cd backend && uv sync
+	cd frontend && npm install
+
+##@ Desenvolvimento
+
+start: ## Sobe o banco e roda backend + frontend juntos (Ctrl-C encerra os dois)
+	@$(MAKE) db
+	@$(MAKE) -j2 backend frontend
+
+backend: ## Só o servidor do backend (http://localhost:8000)
+	$(BACKEND) fastapi dev app/main.py
+
+frontend: ## Só o servidor do frontend (http://localhost:3000)
+	$(FRONTEND) dev
+
+##@ Banco de dados
+
+db: ## Sobe Postgres e Redis em background
+	$(COMPOSE) up -d db redis
+
+db-stop: ## Para o Postgres e o Redis (mantém os dados)
+	$(COMPOSE) stop db redis
+
+db-reset: ## APAGA os dados do banco e recria do zero com as migrations
+	$(COMPOSE) down -v
+	@$(MAKE) db
+	@until $(COMPOSE) exec -T db pg_isready -U postgres >/dev/null 2>&1; do sleep 1; done
+	@$(MAKE) migrate
+
+migrate: ## Aplica todas as migrations pendentes
+	$(BACKEND) alembic upgrade head
+
+migration: ## Cria uma migration nova: make migration name='add tabela x'
+	@test -n "$(name)" || { echo "Faltou o nome: make migration name='add tabela x'"; exit 1; }
+	$(BACKEND) alembic revision --autogenerate -m "$(name)"
+
+downgrade: ## Desfaz a última migration
+	$(BACKEND) alembic downgrade -1
+
+admin: ## Cria/promove um admin: make admin email=... password=...
+	@test -n "$(email)" -a -n "$(password)" || \
+		{ echo "Uso: make admin email=voce@ex.com password='SenhaForte123'"; exit 1; }
+	$(BACKEND) python -m app.scripts.create_admin "$(email)" "$(password)"
+
+psql: ## Abre um psql no banco de desenvolvimento
+	$(COMPOSE) exec db psql -U postgres app
+
+##@ Qualidade (o mesmo que o CI cobra)
+
+check: ## Roda TUDO: lint + tipos + testes dos dois lados
+	@$(MAKE) lint
+	@$(MAKE) typecheck
+	@$(MAKE) test
+
+lint: ## Lint + checagem de formatação (backend e frontend)
+	$(BACKEND) ruff check .
+	$(BACKEND) ruff format --check .
+	$(FRONTEND) lint
+
+format: ## Formata o código (backend e frontend)
+	$(BACKEND) ruff format .
+	$(BACKEND) ruff check --fix .
+	$(FRONTEND) format
+
+typecheck: ## mypy --strict no backend, tsc --noEmit no frontend
+	$(BACKEND) mypy
+	$(FRONTEND) typecheck
+
+test: ## Testes unitários dos dois lados (gate de 100% de cobertura)
+	@$(MAKE) test-backend
+	@$(MAKE) test-frontend
+
+test-backend: ## Só os testes do backend (precisa do banco: make db)
+	$(BACKEND) pytest
+
+test-frontend: ## Só os testes do frontend
+	$(FRONTEND) test
+
+e2e: ## Testes end-to-end (Playwright) — precisa da app rodando
+	$(FRONTEND) e2e
+
+##@ Documentação
+
+docs: ## Regenera OpenAPI, cliente TS e diagrama ER
+	@$(MAKE) api-client
+	@$(MAKE) erd
+
+docs-serve: ## Sobe a documentação MkDocs em http://localhost:8001
+	cd backend && uv run mkdocs serve -a localhost:8001
+
+api-client: ## Regenera o cliente TypeScript a partir do OpenAPI
+	$(BACKEND) python scripts/dump_openapi.py
+	$(FRONTEND) gen:api
+
+erd: ## Regenera o diagrama ER a partir das models
+	$(BACKEND) python scripts/gen_erd.py
+
+##@ Fluxo SDD (abre o Claude Code na skill)
+
+interview: ## /sdd-interview — entrevista de descoberta, preenche o product brief
+	claude "/sdd-interview"
+
+specify: ## /sdd-specify — transforma o brief em specs funcionais (EARS)
+	claude "/sdd-specify"
+
+plan: ## /sdd-plan — deriva o design técnico da spec aprovada
+	claude "/sdd-plan"
+
+tasks: ## /sdd-tasks — quebra o design em ondas de tarefas
+	claude "/sdd-tasks"
+
+implement: ## /sdd-implement — orquestrador delega às subagentes especialistas
+	claude "/sdd-implement"
+
+sdd-verify: ## /sdd-verify — o agente roda o gate e só conclui com tudo verde
+	claude "/sdd-verify"
+
+sdd-docs: ## /sdd-docs — o agente regenera a documentação
+	claude "/sdd-docs"
+
+##@ Docker (stack completa)
+
+up: ## Sobe a stack inteira em containers (db, redis, backend, frontend)
+	$(COMPOSE) up -d
+
+down: ## Derruba a stack (mantém os dados)
+	$(COMPOSE) down
+
+restart: ## Reinicia a stack
+	@$(MAKE) down
+	@$(MAKE) up
+
+build: ## Reconstrói as imagens Docker
+	$(COMPOSE) build
+
+logs: ## Acompanha os logs de todos os serviços
+	$(COMPOSE) logs -f
+
+ps: ## Mostra o estado dos containers
+	$(COMPOSE) ps
+
+##@ Limpeza
+
+clean: ## Remove artefatos de build e caches
+	find . -type d -name __pycache__ -prune -exec rm -rf {} + 2>/dev/null || true
+	rm -rf backend/.pytest_cache backend/.mypy_cache backend/.ruff_cache backend/htmlcov
+	rm -rf frontend/.next frontend/coverage
+
+clean-all: ## clean + remove venv, node_modules e os volumes do banco
+	@$(MAKE) clean
+	$(COMPOSE) down -v
+	rm -rf backend/.venv frontend/node_modules
