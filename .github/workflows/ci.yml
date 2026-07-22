@@ -62,3 +62,11 @@ jobs:
           /tmp/sdd-smoke-venv/bin/sdd-coders init /tmp/smoke-app --name smoke-app
           test -d /tmp/smoke-app/.claude/skills
           test -d /tmp/smoke-app/specs
+
+      - name: Smoke test `adopt` on an existing repo
+        run: |
+          mkdir -p /tmp/smoke-legacy && git -C /tmp/smoke-legacy init -q
+          /tmp/sdd-smoke-venv/bin/sdd-coders adopt /tmp/smoke-legacy
+          test -f /tmp/smoke-legacy/.claude/skills/sdd-constitution/SKILL.md
+          test -f /tmp/smoke-legacy/.claude/hooks/pre-commit-gate.sh
+          test -f /tmp/smoke-legacy/specs/constitution.md

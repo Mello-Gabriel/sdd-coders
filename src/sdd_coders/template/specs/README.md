@@ -7,7 +7,7 @@ construir o sistema; o código existe para satisfazer estas specs.
 
 | Caminho | O que é | Quem edita |
 | --- | --- | --- |
-| `constitution.md` | Arquitetura e princípios **fixos** | Raramente (via ADR) |
+| `constitution.md` | Arquitetura e princípios **fixos** | Raramente — `/sdd-constitution` + ADR |
 | `00-product-brief.md` | Visão, dores, usuários, páginas, escopo | **Você**, na entrevista |
 | `functional/*.md` | Specs funcionais por feature (notação **EARS**) | `/sdd-specify` + você |
 | `architecture/*.md` | Specs técnicas (decorrem da constituição) | Fixas por default |

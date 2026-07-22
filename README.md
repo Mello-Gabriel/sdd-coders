@@ -16,6 +16,18 @@ cd my-app
 # open in Claude Code and run /sdd-interview
 ```
 
+Already have a project? Bring the workflow to it instead of starting over:
+
+```bash
+cd my-existing-repo
+uvx sdd-coders adopt          # agents, /sdd-* skills, hooks, stack-agnostic specs/
+# open in Claude Code and run /sdd-constitution
+```
+
+`adopt` never overwrites your files (pass `--force` if you want it to), and its
+`specs/constitution.md` ships empty on purpose — `/sdd-constitution` reads your
+actual stack and fills it in with you.
+
 > **The wizard (`new`) keeps production secrets away from every AI.** It collects
 > your tokens in a native window, pushes them straight to GitHub / Coolify /
 > Cloudflare (running Terraform/Ansible with state kept *outside* the repo), then

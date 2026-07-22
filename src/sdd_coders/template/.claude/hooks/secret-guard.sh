@@ -21,7 +21,7 @@ block() {
   echo "secret-guard: bloqueado — esta ação tocaria segredos de produção." >&2
   echo "Segredos não vivem neste repo nem neste processo: o wizard sdd-coders os" >&2
   echo "envia direto para GitHub/Coolify e mantém o state/inventário fora do repo." >&2
-  echo "Trabalhe com os NOMES das variáveis (veja app/core/config.py), não os valores." >&2
+  echo "Trabalhe com os NOMES das variáveis de ambiente, nunca com os valores." >&2
   exit 2
 }
 
