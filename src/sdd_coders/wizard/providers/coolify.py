@@ -10,9 +10,7 @@ import httpx
 
 
 class CoolifyClient:
-    def __init__(
-        self, base_url: str, token: str, *, client: httpx.Client | None = None
-    ) -> None:
+    def __init__(self, base_url: str, token: str, *, client: httpx.Client | None = None) -> None:
         self._base = base_url.rstrip("/")
         self._token = token
         self._client = client or httpx.Client(timeout=20.0)
@@ -45,8 +43,7 @@ class CoolifyClient:
         """Bulk-set environment variables on an application."""
         payload = {
             "data": [
-                {"key": key, "value": value, "is_preview": False}
-                for key, value in env.items()
+                {"key": key, "value": value, "is_preview": False} for key, value in env.items()
             ]
         }
         resp = self._client.patch(

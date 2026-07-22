@@ -64,9 +64,9 @@ class WizardApp:
             side="left", fill="x", expand=True
         )
         if hint:
-            ttk.Label(
-                group, text=hint, foreground=self._HINT, wraplength=500, justify="left"
-            ).pack(anchor="w", padx=(2, 0))
+            ttk.Label(group, text=hint, foreground=self._HINT, wraplength=500, justify="left").pack(
+                anchor="w", padx=(2, 0)
+            )
 
     def _check(self, parent: tk.Widget, label: str, key: str, *, hint: str = "") -> None:
         var = tk.BooleanVar(value=False)
@@ -84,9 +84,9 @@ class WizardApp:
             tk.Label(line, background=theme.swatch, width=3, relief="solid", borderwidth=1).pack(
                 side="left", padx=(0, 8)
             )
-            ttk.Radiobutton(
-                line, text=theme.label, value=theme.key, variable=self._theme
-            ).pack(side="left")
+            ttk.Radiobutton(line, text=theme.label, value=theme.key, variable=self._theme).pack(
+                side="left"
+            )
 
     def _build(self) -> None:
         # Fixed action bar at the bottom, always reachable regardless of scroll.
@@ -114,93 +114,146 @@ class WizardApp:
 
         ttk.Label(body, text="Projeto", font=("", 12, "bold")).pack(anchor="w")
         self._row(
-            body, "Domínio (prod)", "domain",
+            body,
+            "Domínio (prod)",
+            "domain",
             hint="Domínio raiz de produção, ex.: meuapp.com (sem http://). "
-                 "Vira as URLs de API, e-mail e DNS. Deixe em branco se ainda não tiver.",
+            "Vira as URLs de API, e-mail e DNS. Deixe em branco se ainda não tiver.",
         )
         self._row(
-            body, "GitHub (owner/repo)", "github_repo",
+            body,
+            "GitHub (owner/repo)",
+            "github_repo",
             hint="Repositório no formato usuario/repo. Onde os secrets de CI e os "
-                 "Environments dev/prod são criados.",
+            "Environments dev/prod são criados.",
         )
         self._check(
-            body, "Criar repositório no GitHub e dar push", "create_github_repo",
+            body,
+            "Criar repositório no GitHub e dar push",
+            "create_github_repo",
             hint="Cria o repo no GitHub a partir desta pasta e faz o primeiro push (requer gh).",
         )
 
         ttk.Separator(body).pack(fill="x", pady=8)
         ttk.Label(body, text="Tema visual", font=("", 12, "bold")).pack(anchor="w")
         ttk.Label(
-            body, text="Paleta primária do shadcn/Tailwind (mesmas telas, cor diferente).",
-            foreground=self._HINT, wraplength=500, justify="left",
+            body,
+            text="Paleta primária do shadcn/Tailwind (mesmas telas, cor diferente).",
+            foreground=self._HINT,
+            wraplength=500,
+            justify="left",
         ).pack(anchor="w", pady=(0, 2))
         self._theme_picker(body)
 
         ttk.Separator(body).pack(fill="x", pady=8)
         ttk.Label(body, text="Provedores", font=("", 12, "bold")).pack(anchor="w")
         for label, key, hint in (
-            ("Cloudflare (DNS + WAF)", "use_cloudflare",
-             "DNS e rate-limit na borda, via Terraform. Requer terraform instalado."),
-            ("Coolify (deploy)", "use_coolify",
-             "Painel de deploy self-hosted; recebe as variáveis de ambiente de produção."),
-            ("Resend (e-mail)", "use_resend",
-             "E-mail transacional: verificação de conta e reset de senha."),
-            ("Google Analytics", "use_ga",
-             "GA4 — só carrega depois do consentimento de cookies (LGPD)."),
-            ("Turnstile (captcha)", "use_turnstile",
-             "Captcha da Cloudflare nas rotas de registro e reset de senha."),
-            ("Provisionar VPS (Hostinger + Ansible)", "manage_vps",
-             "Cria e endurece o VPS via Ansible. Requer ansible instalado."),
+            (
+                "Cloudflare (DNS + WAF)",
+                "use_cloudflare",
+                "DNS e rate-limit na borda, via Terraform. Requer terraform instalado.",
+            ),
+            (
+                "Coolify (deploy)",
+                "use_coolify",
+                "Painel de deploy self-hosted; recebe as variáveis de ambiente de produção.",
+            ),
+            (
+                "Resend (e-mail)",
+                "use_resend",
+                "E-mail transacional: verificação de conta e reset de senha.",
+            ),
+            (
+                "Google Analytics",
+                "use_ga",
+                "GA4 — só carrega depois do consentimento de cookies (LGPD).",
+            ),
+            (
+                "Turnstile (captcha)",
+                "use_turnstile",
+                "Captcha da Cloudflare nas rotas de registro e reset de senha.",
+            ),
+            (
+                "Provisionar VPS (Hostinger + Ansible)",
+                "manage_vps",
+                "Cria e endurece o VPS via Ansible. Requer ansible instalado.",
+            ),
         ):
             self._check(body, label, key, hint=hint)
 
         ttk.Separator(body).pack(fill="x", pady=8)
         ttk.Label(
-            body, text="Segredos (vão direto pro destino remoto, nunca pro repo)",
+            body,
+            text="Segredos (vão direto pro destino remoto, nunca pro repo)",
             font=("", 12, "bold"),
         ).pack(anchor="w")
         self._row(
-            body, "Cloudflare API token", "cloudflare_api_token", secret=True,
+            body,
+            "Cloudflare API token",
+            "cloudflare_api_token",
+            secret=True,
             hint="Token da API Cloudflare (Zone DNS + Firewall). Cria DNS/WAF via Terraform.",
         )
         self._row(
-            body, "Coolify URL", "coolify_url",
+            body,
+            "Coolify URL",
+            "coolify_url",
             hint="URL da sua instância Coolify, ex.: https://coolify.meuapp.com",
         )
         self._row(
-            body, "Coolify token", "coolify_token", secret=True,
+            body,
+            "Coolify token",
+            "coolify_token",
+            secret=True,
             hint="Token de API do Coolify (Settings → API Tokens). Dispara os deploys.",
         )
         self._row(
-            body, "Resend API key", "resend_api_key", secret=True,
+            body,
+            "Resend API key",
+            "resend_api_key",
+            secret=True,
             hint="API key do Resend (começa com re_). Vai pro backend em produção.",
         )
         self._row(
-            body, "Turnstile secret key", "turnstile_secret_key", secret=True,
+            body,
+            "Turnstile secret key",
+            "turnstile_secret_key",
+            secret=True,
             hint="Chave secreta (lado servidor) do widget Turnstile.",
         )
         self._row(
-            body, "Turnstile site key", "turnstile_site_key",
+            body,
+            "Turnstile site key",
+            "turnstile_site_key",
             hint="Chave pública (site key) do Turnstile, embutida no frontend.",
         )
         self._row(
-            body, "GA measurement id", "ga_id",
+            body,
+            "GA measurement id",
+            "ga_id",
             hint="ID de medição do GA4 no formato G-XXXXXXXXXX.",
         )
         self._row(
-            body, "Hostinger API key", "hostinger_api_key", secret=True,
+            body,
+            "Hostinger API key",
+            "hostinger_api_key",
+            secret=True,
             hint="Token da API Hostinger (vps:read, vps:write) — só se provisionar o VPS.",
         )
         self._row(
-            body, "VPS IP", "vps_ip",
+            body,
+            "VPS IP",
+            "vps_ip",
             hint="IP do VPS de produção. Usado no DNS e no inventário do Ansible.",
         )
 
         ttk.Label(
             body,
             text="JWT, senha do Postgres e do Redis são geradas automaticamente — "
-                 "você não precisa preencher.",
-            foreground="#666", wraplength=500, justify="left",
+            "você não precisa preencher.",
+            foreground="#666",
+            wraplength=500,
+            justify="left",
         ).pack(anchor="w", pady=8)
 
     # Helpers --------------------------------------------------------------------
@@ -242,9 +295,7 @@ class WizardApp:
             coolify_token=self._get("coolify_token"),
         ).with_generated_secrets()
         if cfg.use_cloudflare and cfg.domain and cfg.cloudflare_api_token:
-            cfg.cloudflare_zone_id = CloudflareClient(cfg.cloudflare_api_token).zone_id(
-                cfg.domain
-            )
+            cfg.cloudflare_zone_id = CloudflareClient(cfg.cloudflare_api_token).zone_id(cfg.domain)
         if cfg.use_coolify and cfg.coolify_url and cfg.coolify_token:
             cfg.coolify_uuids = CoolifyClient(cfg.coolify_url, cfg.coolify_token).resolve_uuids(
                 {
@@ -283,12 +334,8 @@ class WizardApp:
             return
         save_secrets(cfg.project_name, cfg)
 
-        coolify = (
-            CoolifyClient(cfg.coolify_url, cfg.coolify_token) if cfg.use_coolify else None
-        )
-        terraform = (
-            Terraform(terraform_workdir(cfg.project_name)) if cfg.use_cloudflare else None
-        )
+        coolify = CoolifyClient(cfg.coolify_url, cfg.coolify_token) if cfg.use_coolify else None
+        terraform = Terraform(terraform_workdir(cfg.project_name)) if cfg.use_cloudflare else None
         ansible = Ansible() if cfg.manage_vps else None
         pipeline = Pipeline(
             cfg=cfg,

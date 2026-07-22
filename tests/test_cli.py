@@ -2,16 +2,32 @@
 
 from __future__ import annotations
 
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
 
+from sdd_coders import __main__ as main_module
 from sdd_coders import __version__
-from sdd_coders.cli import app
+from sdd_coders.cli import OPTIONAL_TOOLS, app
 from sdd_coders.scaffold import write_dev_env
 
 runner = CliRunner()
+
+
+def test_python_module_entrypoint_runs_version() -> None:
+    assert main_module.__name__ == "sdd_coders.__main__"  # import must not start the CLI
+
+    result = subprocess.run(
+        [sys.executable, "-m", "sdd_coders", "version"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0
+    assert __version__ in result.stdout
 
 
 def test_write_dev_env_does_not_overwrite_existing(tmp_path: Path) -> None:
@@ -134,6 +150,21 @@ def test_doctor_reports_missing_tools(monkeypatch: pytest.MonkeyPatch) -> None:
     result = runner.invoke(app, ["doctor"])
     assert result.exit_code == 1
     assert "Missing tools" in result.stdout
+
+
+def test_doctor_warns_but_passes_when_optional_tools_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "sdd_coders.cli.shutil.which",
+        lambda tool: None if tool in OPTIONAL_TOOLS else "/usr/bin/tool",
+    )
+    result = runner.invoke(app, ["doctor"])
+    assert result.exit_code == 0
+    assert "Warning: optional tool 'gh' not found" in result.stdout
+    assert "deploy pipeline" in result.stdout
+    assert "Warning: optional tool 'claude' not found" in result.stdout
+    assert "Core toolchain OK" in result.stdout
 
 
 def _setup_project(tmp_path: Path) -> None:

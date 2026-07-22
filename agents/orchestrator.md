@@ -20,9 +20,11 @@ Leia `specs/constitution.md`, `specs/architecture/*` e a spec funcional alvo em
    - schema/migrations/RLS → `database-engineer`
    - API/regras/serviços → `backend-engineer`
    - UI/telas/consentimento → `frontend-engineer`
+   - design-system/tokens/Storybook → `design-engineer`
    - testes (unit/integração/E2E) → `test-engineer`
    - hardening/OWASP/RLS review → `security-auditor`
    - Docker/CI/observabilidade → `devops-engineer`
+   - infra/IaC/deploy/Coolify → `platform-engineer`
    - documentação → `docs-writer`
 4. **Integre** os resultados e rode `/sdd-verify`. Só conclua com tudo verde
    (lint + types + testes 100% + E2E).

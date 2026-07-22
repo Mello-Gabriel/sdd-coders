@@ -30,6 +30,17 @@ app = typer.Typer(
 
 REQUIRED_TOOLS = ("git", "uv", "node", "npm", "docker")
 
+# Optional tools unlock extra workflows; their absence only disables features,
+# so `doctor` warns about them instead of failing.
+OPTIONAL_TOOLS = ("gh", "terraform", "ansible", "claude")
+
+_OPTIONAL_FEATURES = {
+    "gh": "the `new` wizard deploy pipeline (GitHub repo + secrets)",
+    "terraform": "the `new` wizard deploy pipeline (IaC provisioning)",
+    "ansible": "the `new` wizard deploy pipeline (server configuration)",
+    "claude": "the AI agent launcher used by the `new` wizard interview",
+}
+
 # Project and feature names become directory/file paths and identifiers, so they
 # are restricted to a safe slug (also blocks path traversal like "../etc").
 _SLUG = re.compile(r"^[a-z][a-z0-9-]{1,62}$")
@@ -118,12 +129,20 @@ def configure(
 
 @app.command()
 def doctor() -> None:
-    """Check that the required toolchain is installed."""
-    missing = [tool for tool in REQUIRED_TOOLS if shutil.which(tool) is None]
-    if missing:
-        typer.echo(f"Missing tools: {', '.join(missing)}")
+    """Check the toolchain: missing core tools fail, optional ones only warn."""
+    missing_core = [tool for tool in REQUIRED_TOOLS if shutil.which(tool) is None]
+    missing_optional = [tool for tool in OPTIONAL_TOOLS if shutil.which(tool) is None]
+    for tool in missing_optional:
+        typer.echo(
+            f"Warning: optional tool '{tool}' not found — needed for {_OPTIONAL_FEATURES[tool]}."
+        )
+    if missing_core:
+        typer.echo(f"Missing tools: {', '.join(missing_core)}")
         raise typer.Exit(code=1)
-    typer.echo("Toolchain OK")
+    if missing_optional:
+        typer.echo("Core toolchain OK (optional tools missing — see warnings above)")
+    else:
+        typer.echo("Toolchain OK")
 
 
 @app.command(name="add-feature")

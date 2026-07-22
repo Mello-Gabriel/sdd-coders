@@ -63,12 +63,8 @@ class FakeRunner:
         input: str | None = None,
         capture_output: bool = True,
     ) -> subprocess.CompletedProcess[str]:
-        self.calls.append(
-            SimpleNamespace(args=list(args), cwd=cwd, env=env, input=input)
-        )
-        return subprocess.CompletedProcess(
-            list(args), self.returncode, self.stdout, self.stderr
-        )
+        self.calls.append(SimpleNamespace(args=list(args), cwd=cwd, env=env, input=input))
+        return subprocess.CompletedProcess(list(args), self.returncode, self.stdout, self.stderr)
 
 
 def mock_client(handler: Callable[[httpx.Request], httpx.Response]) -> httpx.Client:

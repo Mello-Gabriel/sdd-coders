@@ -35,9 +35,7 @@ class Terraform:
             env.update(extra_env)
         result = self._run(["terraform", *args], cwd=str(self._workdir), env=env)
         if result.returncode != 0:
-            raise TerraformError(
-                (result.stderr or "").strip() or f"terraform {args[0]} failed"
-            )
+            raise TerraformError((result.stderr or "").strip() or f"terraform {args[0]} failed")
         return (result.stdout or "").strip()
 
     def init(self) -> None:
