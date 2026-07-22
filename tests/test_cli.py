@@ -121,6 +121,7 @@ def test_configure_launches_wizard_for_existing(
 ) -> None:
     project = tmp_path / "demo-app"
     project.mkdir()
+    (project / ".copier-answers.yml").write_text("_src_path: .\n", encoding="utf-8")
     captured: dict[str, object] = {}
 
     def fake_run_wizard(path: Path, name: str, **kwargs: object) -> None:
@@ -136,6 +137,17 @@ def test_configure_missing_directory(tmp_path: Path) -> None:
     result = runner.invoke(app, ["configure", str(tmp_path / "nope")])
     assert result.exit_code == 1
     assert "No such project" in result.stdout
+
+
+def test_configure_rejects_a_directory_that_was_never_generated(tmp_path: Path) -> None:
+    """Without scaffolding, a wrong path would push secrets for a nonexistent project."""
+    project = tmp_path / "not-a-project"
+    project.mkdir()
+
+    result = runner.invoke(app, ["configure", str(project)])
+
+    assert result.exit_code == 1
+    assert ".copier-answers.yml not found" in result.stdout
 
 
 def test_doctor_reports_ok_when_tools_present(monkeypatch: pytest.MonkeyPatch) -> None:

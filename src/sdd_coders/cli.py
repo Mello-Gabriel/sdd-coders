@@ -121,6 +121,14 @@ def configure(
     if not path.is_dir():
         typer.echo(f"No such project directory: {path}")
         raise typer.Exit(code=1)
+    # `configure` no longer scaffolds, so a wrong path would silently push this
+    # project's secrets for a repo that was never generated.
+    if not (path / ".copier-answers.yml").is_file():
+        typer.echo(
+            f"{path} does not look like a generated project (.copier-answers.yml not found). "
+            "Use `sdd-coders init` or `sdd-coders new` to create one first."
+        )
+        raise typer.Exit(code=1)
     project_name = _validate_slug(path.name, "project name")
     from sdd_coders.wizard.app import run_wizard  # noqa: PLC0415 (lazy: skip tkinter import)
 

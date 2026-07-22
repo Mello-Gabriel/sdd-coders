@@ -108,8 +108,17 @@ class Pipeline:
         playbook = self.repo / "infra" / "ansible" / "playbooks" / "harden.yml"
         self.ansible.run_playbook(playbook, inventory, cwd=self.repo / "infra" / "ansible")
 
-    def run_all(self) -> None:
-        self.scaffold_repo()
+    def run_all(self, *, scaffold: bool = True) -> None:
+        """Run every step. Pass ``scaffold=False`` for a project that already exists.
+
+        Re-rendering the template over a repo someone has been working in is not
+        just redundant, it is destructive: Copier refuses to overwrite without an
+        interactive session, and ``init_commit`` would sweep the user's
+        work-in-progress into a commit. ``configure`` therefore skips straight to
+        pushing secrets and provisioning.
+        """
+        if scaffold:
+            self.scaffold_repo()
         self.push_github()
         self.push_coolify()
         self.provision_terraform()
